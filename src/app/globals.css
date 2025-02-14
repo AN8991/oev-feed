@@ -1,0 +1,67 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --foreground-rgb: 0, 0, 0;
+  --background-start-rgb: 250, 251, 252;
+  --background-end-rgb: 255, 255, 255;
+}
+
+/* Ensure proper CSS loading with visual indicator */
+.css-loading-indicator {
+  display: none;
+}
+
+html {
+  height: 100%;
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  background: linear-gradient(
+    to bottom,
+    rgb(var(--background-start-rgb)),
+    rgb(var(--background-end-rgb))
+  );
+  min-height: 100%;
+}
+
+/* Loading animation styles */
+.loading-skeleton {
+  @apply animate-pulse bg-gray-200;
+}
+
+/* Transition styles */
+.custom-transition {
+  @apply duration-200 ease-in-out;
+}
+
+/* Button styles */
+.btn {
+  @apply px-4 py-2 rounded-lg font-medium transition-all duration-200;
+}
+
+.btn-primary {
+  @apply bg-blue-500 text-white hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed;
+}
+
+/* Card styles */
+.card {
+  @apply bg-white rounded-lg shadow-md p-6;
+}
+
+/* Form styles */
+.form-input {
+  @apply w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500;
+}
+
+/* Grid styles */
+.grid-responsive {
+  @apply grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6;
+}
+
+/* Make sure Tailwind utilities are working */
+.test-tailwind {
+  @apply text-blue-500 bg-red-500;
+}

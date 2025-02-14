@@ -7,6 +7,7 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+/// Stores unique user information and their associated DeFi positions
 model User {
   id        String   @id @default(uuid())
   address   String   @unique
@@ -17,6 +18,7 @@ model User {
   @@index([address])
 }
 
+/// Tracks the most recent active position for a user in a specific protocol
 model Position {
   id            String   @id @default(uuid())
   userId        String
@@ -32,4 +34,51 @@ model Position {
   @@unique([userId, protocol])
   @@index([userId])
   @@index([protocol])
+}
+
+/// Maintains a historical record of user positions across different protocols and networks
+model UserPosition {
+  id            String   @id @default(uuid())
+  protocol      String
+  network       String
+  userAddress   String
+  collateral    String
+  debt          String
+  healthFactor  String
+  timestamp     Int
+  details       Json?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([protocol])
+  @@index([network])
+  @@index([userAddress])
+  @@index([timestamp])
+}
+
+/// Defines the type of transaction in DeFi protocols
+enum TransactionType {
+  BORROW
+  REPAY
+  SUPPLY
+  WITHDRAW
+}
+
+/// Tracks historical transaction records across different protocols and networks
+model Transaction {
+  id        String         @id @default(uuid())
+  timestamp Int
+  protocol  String
+  network   String
+  address   String
+  type      TransactionType
+  amount    String
+  asset     String
+  txHash    String
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  @@index([address])
+  @@index([protocol, network])
+  @@index([timestamp])
 }
