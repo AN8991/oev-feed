@@ -27,21 +27,26 @@ export interface UserProtocolPosition {
   // Core identification
   protocol: Protocol;      // Which protocol (e.g., Aave)
   network: Network;        // Blockchain network
+  version?: string;        // Optional to maintain backward compatibility
   userAddress: string;     // Wallet address
   
   // Collateral and debt information
-  collateral?: number | null;  // Collateral amount
-  debt?: number | null;        // Total debt
+  collateral: string | null;  // Collateral amount
+  debt: string | null;        // Total debt
   
   // Health and risk metrics
-  healthFactor?: string;   // Position's health score
+  healthFactor: string;   // Position's health score
   liquidationRisk?: {
     threshold: string;     // Liquidation threshold
     currentLTV: string;    // Loan-to-Value ratio
   };
   
   // Borrowed assets
-  borrowedAssets: BorrowedAsset[];
+  borrowedAssets: {
+    symbol: string;
+    amount: string;
+    valueETH: string;
+  }[];
   
   // Timestamp information
   timestamp: number;       // When position was captured

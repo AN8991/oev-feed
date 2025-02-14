@@ -15,7 +15,7 @@ export type ContractAddressesType = {
 
 // Centralized configuration of contract addresses across different protocols and networks
 export const CONTRACT_ADDRESSES: ContractAddressesType = {
-  // Aave V3 contract addresses for Ethereum mainnet
+  // Aave contract addresses for Ethereum mainnet
   AAVE: {
     V3_ETH_MAINNET: {
       // Aave Pool contract for managing liquidity and user positions
@@ -26,6 +26,12 @@ export const CONTRACT_ADDRESSES: ContractAddressesType = {
       ORACLE: '0x54586bE62E3c3580375aE3723C145253060Ca0C2',
       // Rewards controller contract for managing protocol rewards
       REWARDS_CONTROLLER: '0x8164Cc65827dcFe994AB23944CBC90e0aa80bFcb'
+    },
+    V2_ETH_MAINNET: {
+      LENDING_POOL: '0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7A9',
+      PROTOCOL_DATA_PROVIDER: '0x057835Ad21a177dbdd3090bB1CAE03EaCF78Fc6d',
+      PRICE_ORACLE: '0xA50ba011c48153De246E5192C8f9258A2ba79Ca9',
+      INCENTIVES_CONTROLLER: '0xd784927Ff2f95ba542BfC824c8a8a98F3495f6b5'
     }
   }
 };

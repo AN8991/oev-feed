@@ -10,9 +10,11 @@ import {
 } from '../../types/protocols';
 import { log } from '../../utils/logger';
 import { getEnabledDataSources } from '../../config/data-sources';
+import { ProviderManager } from '../providers/provider-manager';
+import { ethers } from 'ethers';
 
 export interface QueryParams {
-  protocol: string;
+  protocol: Protocol;
   network: Network;
   fromTimestamp: number;
   toTimestamp: number;
@@ -28,6 +30,9 @@ export interface ProtocolConfig {
   rpcUrl: string;
   wsUrl?: string;
   subgraphUrl?: string;
+  maxConnections?: number;
+  connectionTimeout?: number;
+  keepAliveTimeout?: number;
 }
 
 export abstract class BaseProtocolService implements ProtocolDataService {
@@ -35,15 +40,57 @@ export abstract class BaseProtocolService implements ProtocolDataService {
   protected rpcUrl: string;
   protected wsUrl?: string;
   protected subgraphUrl?: string;
+  protected providerKey: string;
+  protected eventSubscriptions: ethers.Contract[] = [];
+  private providerManager: ProviderManager;
 
   constructor(config: ProtocolConfig) {
     this.network = config.network;
     this.rpcUrl = config.rpcUrl;
     this.wsUrl = config.wsUrl;
     this.subgraphUrl = config.subgraphUrl;
+    this.providerManager = ProviderManager.getInstance();
+    this.providerKey = `${this.constructor.name}-${this.network}`;
+    
+    // Initialize provider configuration
+    this.providerManager.initializeProvider(this.providerKey, {
+      network: this.network,
+      rpcUrl: this.rpcUrl,
+      wsUrl: this.wsUrl,
+      maxConnections: config.maxConnections,
+      connectionTimeout: config.connectionTimeout,
+      keepAliveTimeout: config.keepAliveTimeout
+    });
   }
 
   abstract getDataSourceType(): DataSourceType;
+
+  protected async getProvider(): Promise<ethers.JsonRpcProvider> {
+    return this.providerManager.getProvider(this.providerKey);
+  }
+
+  protected async getWebSocketProvider(): Promise<ethers.WebSocketProvider | null> {
+    return this.providerManager.getWebSocketProvider(this.providerKey);
+  }
+
+  protected async subscribeToEvents(contract: ethers.Contract): Promise<void> {
+    this.eventSubscriptions.push(contract);
+  }
+
+  protected async cleanup(): Promise<void> {
+    // Clean up event subscriptions
+    for (const contract of this.eventSubscriptions) {
+      contract.removeAllListeners();
+    }
+    this.eventSubscriptions = [];
+    
+    // Clean up provider
+    await this.providerManager.disposeProvider(this.providerKey);
+  }
+
+  public async dispose(): Promise<void> {
+    await this.cleanup();
+  }
 
   async fetchUserPositions(params: ProtocolQueryParams): Promise<UserProtocolPosition[]> {
     const { userAddress, protocol } = params;

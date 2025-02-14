@@ -87,26 +87,31 @@ export class AaveService extends BaseProtocolService implements ProtocolDataServ
       throw new Error('User address is required for fetching on-chain positions');
     }
 
-    // Use network configuration for RPC URL
-    const provider = new ethers.JsonRpcProvider(this.rpcUrl);
+    try {
+      // Get managed provider instance
+      const provider = await this.getProvider();
+      
+      // TODO: Replace with actual Aave contract interaction
+      // This is a placeholder implementation
+      log.info('Fetching on-chain Aave positions', { userAddress });
 
-    // TODO: Replace with actual Aave contract interaction
-    // This is a placeholder implementation
-    log.info('Fetching on-chain Aave positions', { userAddress });
-
-    return [{
-      protocol: this.protocol,
-      network: this.network,
-      userAddress,
-      collateral: null,
-      debt: null,
-      healthFactor: 'N/A',
-      liquidationRisk: undefined,
-      borrowedAssets: [],
-      timestamp: Date.now(),
-      periodStart: params.fromTimestamp,
-      periodEnd: params.toTimestamp
-    }];
+      return [{
+        protocol: this.protocol,
+        network: this.network,
+        userAddress,
+        collateral: null,
+        debt: null,
+        healthFactor: 'N/A',
+        liquidationRisk: undefined,
+        borrowedAssets: [],
+        timestamp: Date.now(),
+        periodStart: params.fromTimestamp,
+        periodEnd: params.toTimestamp
+      }];
+    } catch (error) {
+      log.error('Error fetching on-chain positions', { error, userAddress });
+      throw error;
+    }
   }
 
   // Public method to expose protected fetchFromOnChain
@@ -141,5 +146,18 @@ export class AaveService extends BaseProtocolService implements ProtocolDataServ
       fromTimestamp: params.fromTimestamp,
       toTimestamp: params.toTimestamp
     });
+  }
+
+  // Override cleanup to handle Aave-specific resources
+  protected async cleanup(): Promise<void> {
+    try {
+      // Clean up any Aave-specific resources here
+      
+      // Call base class cleanup
+      await super.cleanup();
+    } catch (error) {
+      log.error('Error during Aave service cleanup', { error });
+      throw error;
+    }
   }
 }
