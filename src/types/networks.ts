@@ -23,6 +23,9 @@ export interface NetworkConfig {
   };
 }
 
+// Import from centralized provider URLs
+import { ProviderUrls } from '../services/providers/provider-urls';
+
 // Generate network configuration dynamically based on provider settings
 export function getNetworkConfig(
   network: Network, 
@@ -30,20 +33,18 @@ export function getNetworkConfig(
 ): NetworkConfig {
   // Retrieve network-specific URLs from provider manager
   const getProviderUrls = (provider: NetworkProvider) => {
-    switch (provider) {
-      case NetworkProvider.INFURA:
-        return { 
-          http: `https://mainnet.infura.io/v3/${process.env.INFURA_API_KEY}`, 
-          ws: `wss://mainnet.infura.io/ws/v3/${process.env.INFURA_API_KEY}`
-        };
-      case NetworkProvider.ALCHEMY:
-        return { 
-          http: `https://eth-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`, 
-          ws: `wss://eth-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`
-        };
-      default:
-        throw new Error(`Unsupported network provider: ${provider}`);
+    const apiKey = provider === NetworkProvider.INFURA 
+      ? process.env.INFURA_API_KEY 
+      : process.env.ALCHEMY_API_KEY;
+    
+    if (!apiKey) {
+      throw new Error(`API key not found for provider: ${provider}`);
     }
+    
+    return {
+      http: ProviderUrls.getHttpUrl(network, provider, apiKey),
+      ws: ProviderUrls.getWsUrl(network, provider, apiKey)
+    };
   };
 
   // Base network configuration without URLs

@@ -1,0 +1,29 @@
+{
+  "blockNumber": 21965342,
+  "blockInfo": {
+    "number": 21965342,
+    "timestamp": 1740992627,
+    "hash": "0xa890f2e4aecbc740fc3caddf4e85f3d780ec5ba332269c1eab2951b42db3d759",
+    "transactionCount": 154
+  },
+  "userPositions": {
+    "aaveV3": {
+      "address": "0xf0bb20865277abd641a307ece5ee04e79073416c",
+      "totalCollateral": "0.082386681512827753",
+      "totalDebt": "0.073353617571402345",
+      "availableBorrows": "0.003265996235527465",
+      "liquidationThreshold": 0.95,
+      "ltv": 0.93,
+      "healthFactor": "1.066986878472639741"
+    },
+    "aaveV2": {
+      "address": "0xf0bb20865277abd641a307ece5ee04e79073416c",
+      "totalCollateral": "0.0",
+      "totalDebt": "0.0",
+      "availableBorrows": "0.0",
+      "liquidationThreshold": 0,
+      "ltv": 0,
+      "healthFactor": "115792089237316195423570985008687907853269984665640564039457.584007913129639935"
+    }
+  }
+}

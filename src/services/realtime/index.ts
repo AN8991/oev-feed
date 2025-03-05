@@ -1,10 +1,10 @@
 import { ethers } from 'ethers';
-import { Protocol } from 'types/protocols';
-import { Network } from 'types/networks';
-import { ServiceFactory } from 'services';
-import { CONTRACT_ADDRESSES } from 'config/contracts';
-import { AAVE_POOL_ABI } from 'services/protocols/aave/abi';
-import { log } from 'utils/logger';
+import { Protocol } from '@/types/protocols';
+import { Network } from '@/types/networks';
+import { ServiceFactory } from '@/services';
+import { CONTRACT_ADDRESSES } from '@/config/contracts';
+import { AAVE_POOL_ABI } from '@/services/protocols/aave/abi';
+import { log } from '@/utils/logger';
 
 // Structured representation of blockchain event data
 interface EventData {

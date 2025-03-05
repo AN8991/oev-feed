@@ -1,122 +1,83 @@
 // Service for synchronizing protocol positions and managing periodic updates
-import { ethers } from 'ethers';
 import { PrismaClient } from '@prisma/client';
-import { Network } from 'types/networks';
-import { Protocol } from 'types/protocols';
-import { ENV } from 'config/env';
-import { CONTRACT_ADDRESSES } from 'config/contracts';
-import { log } from 'utils/logger';
+import { Network } from '@/types/networks';
+import { Protocol, ProtocolQueryParams } from '@/types/protocols';
+import { log } from '@/utils/logger';
 
-import { AAVE_POOL_ABI, AAVE_POOL_DATA_PROVIDER_ABI, AAVE_ORACLE_ABI } from './aave/abi';
-
-interface UserReserveData {
-  currentATokenBalance: bigint;
-  currentVariableDebt: bigint;
-  currentStableDebt: bigint;
-  decimals: number;
-}
-
-interface UserAccountData {
-  totalCollateralBase: bigint;
-  totalDebtBase: bigint;
-  availableBorrowsBase: bigint;
-  currentLiquidationThreshold: bigint;
-  ltv: bigint;
-  healthFactor: bigint;
-}
+// Import the new protocol service factories
+import { AaveServiceFactory } from './aave/aave-factory';
 
 export class ProtocolPositionSyncService {
   private prisma: PrismaClient;
-  private providers: Record<Network, ethers.Provider>;
   private readonly BATCH_SIZE = 100;
   private readonly MAX_RETRIES = 3;
   private readonly RETRY_DELAY_MS = 1000;
 
   constructor() {
     this.prisma = new PrismaClient();
-    this.providers = {
-      [Network.ETHEREUM]: new ethers.JsonRpcProvider(ENV.getAlchemyEthereumRpcUrl()),
-    };
-  }
-
-  private getContractInstance<T extends ethers.Contract>(
-    network: Network, 
-    address: string, 
-    abi: ethers.InterfaceAbi
-  ): T {
-    if (!this.providers[network]) {
-      throw new Error(`No provider available for network: ${network}`);
-    }
-    return new ethers.Contract(address, abi, this.providers[network]) as T;
   }
 
   async syncAavePositions(network: Network, fromAddress?: string): Promise<void> {
-    if (network !== Network.ETHEREUM) {
-      throw new Error('Only Ethereum network is supported');
-    }
-
     try {
-      const networkAddresses = CONTRACT_ADDRESSES.AAVE.V3_ETH_MAINNET;
-      if (!networkAddresses) {
-        throw new Error('No contract addresses found for AAVE V3 on Ethereum');
-      }
-
-      const poolContract = this.getContractInstance(
-        network, 
-        networkAddresses.POOL, 
-        AAVE_POOL_ABI
-      );
-      const poolDataProviderContract = this.getContractInstance(
-        network, 
-        networkAddresses.POOL_DATA_PROVIDER, 
-        AAVE_POOL_DATA_PROVIDER_ABI
-      );
-
+      log.info('Syncing Aave positions', { network, fromAddress });
+      
+      // Get the Aave service for the specified network
+      const aaveFactory = AaveServiceFactory.getInstance();
+      const aaveService = await aaveFactory.getServiceForNetwork(network);
+      
       // If fromAddress is not provided, fetch all user positions
-      const userAddresses = fromAddress ? [fromAddress] : await this.fetchAllAaveUsers(poolContract);
+      const userAddresses = fromAddress ? [fromAddress] : await this.fetchAllAaveUsers(network);
       const timestamp = Math.floor(Date.now() / 1000);
       
       // Process users in batches
       for (let i = 0; i < userAddresses.length; i += this.BATCH_SIZE) {
         const batch = userAddresses.slice(i, i + this.BATCH_SIZE);
-        await Promise.all(batch.map(address => this.processUserPosition(
+        await Promise.all(batch.map(address => this.processAaveUserPosition(
           network,
           address,
           timestamp,
-          poolContract,
-          poolDataProviderContract
+          aaveService
         )));
       }
+      
+      log.info('Successfully synced Aave positions', { 
+        network, 
+        fromAddress, 
+        usersCount: userAddresses.length 
+      });
     } catch (error) {
-      log.error('Error syncing Aave positions', error);
+      log.error('Error syncing Aave positions', { error, network, fromAddress });
       throw error;
     }
   }
 
-  private async processUserPosition(
+  private async processAaveUserPosition(
     network: Network,
     address: string,
     timestamp: number,
-    poolContract: ethers.Contract,
-    poolDataProviderContract: ethers.Contract
+    aaveService: any
   ): Promise<void> {
     let retries = 0;
     while (retries < this.MAX_RETRIES) {
       try {
-        const userAccountData = await poolContract.getUserAccountData(address) as UserAccountData;
-        const userReserves = await poolDataProviderContract.getUserReservesData(address) as UserReserveData[];
-
-        if (!userReserves || userReserves.length === 0) return;
-
-        // Aggregate collateral and debt across reserves
-        const totalCollateral = userReserves.reduce((sum, reserve) => 
-          sum + Number(ethers.formatUnits(reserve.currentATokenBalance, reserve.decimals)), 0);
-        const totalDebt = userReserves.reduce((sum, reserve) => 
-          sum + Number(ethers.formatUnits(
-            reserve.currentVariableDebt + reserve.currentStableDebt, 
-            reserve.decimals
-          )), 0);
-
+        const params: ProtocolQueryParams = { userAddress: address };
+        
+        // Get user positions from the Aave service
+        const positions = await aaveService.getUserPositions(params);
+        
+        if (!positions || positions.length === 0) {
+          log.info('No positions found for user', { address, network });
+          return;
+        }
+        
+        // Get health factor
+        const healthFactor = await aaveService.getHealthFactor(params);
+        
+        // Calculate total collateral and debt
+        const totalCollateral = positions.reduce((sum, pos) => sum + parseFloat(pos.collateralAmount || '0'), 0);
+        const totalDebt = positions.reduce((sum, pos) => sum + parseFloat(pos.debtAmount || '0'), 0);
+        
+        // Store position in database
         await this.prisma.userPosition.upsert({
           where: {
             id: `AAVE_${address}_${timestamp}`
@@ -124,8 +85,8 @@ export class ProtocolPositionSyncService {
           update: {
             collateral: totalCollateral.toString(),
             debt: totalDebt.toString(),
-            healthFactor: ethers.formatUnits(userAccountData.healthFactor, 18),
-            details: JSON.stringify(userReserves)
+            healthFactor: healthFactor,
+            details: JSON.stringify(positions)
           },
           create: {
             protocol: Protocol.AAVE,
@@ -133,11 +94,20 @@ export class ProtocolPositionSyncService {
             userAddress: address.toLowerCase(),
             collateral: totalCollateral.toString(),
             debt: totalDebt.toString(),
-            healthFactor: ethers.formatUnits(userAccountData.healthFactor, 18),
+            healthFactor: healthFactor,
             timestamp: timestamp,
-            details: JSON.stringify(userReserves)
+            details: JSON.stringify(positions)
           }
         });
+        
+        log.debug('Processed user position', { 
+          address, 
+          network, 
+          collateral: totalCollateral, 
+          debt: totalDebt, 
+          healthFactor 
+        });
+        
         break;
       } catch (error) {
         retries++;
@@ -158,30 +128,33 @@ export class ProtocolPositionSyncService {
     }
   }
 
-  private async fetchAllAaveUsers(poolContract: ethers.Contract): Promise<string[]> {
+  private async fetchAllAaveUsers(network: Network): Promise<string[]> {
     try {
       // TODO: Implement logic to fetch all Aave users from subgraph or events
-      const filter = poolContract.filters.Supply();
-      const events = await poolContract.queryFilter(filter, -10000); // Last 10000 blocks
-      const uniqueUsers = new Set(events.map(event => {
-        // Handle the event arguments properly for ethers.js v6
-        if ('args' in event) {
-          return event.args.user;
-        }
-        return null;
-      }).filter(Boolean));
-      return Array.from(uniqueUsers);
+      // This is a placeholder implementation
+      log.info('Fetching all Aave users', { network });
+      
+      // In a real implementation, we would fetch users from a subgraph or events
+      // For now, return an empty array
+      return [];
     } catch (error) {
-      log.error('Error fetching Aave users', error);
+      log.error('Error fetching Aave users', { error, network });
       throw error;
     }
   }
 
   async syncAllProtocolPositions(network: Network, fromAddress?: string): Promise<void> {
-    if (network !== Network.ETHEREUM) {
-      throw new Error('Only Ethereum network is supported');
-    }
-    await this.syncAavePositions(network, fromAddress);
+    log.info('Syncing all protocol positions', { network, fromAddress });
+    
+    // Sync positions for each protocol
+    await Promise.all([
+      this.syncAavePositions(network, fromAddress),
+      // Add other protocols here as they are implemented
+      // this.syncCompoundPositions(network, fromAddress),
+      // this.syncSiloPositions(network, fromAddress),
+    ]);
+    
+    log.info('Successfully synced all protocol positions', { network, fromAddress });
   }
 }
 

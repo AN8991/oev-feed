@@ -1,7 +1,10 @@
-import { Protocol, UserProtocolPosition, ProtocolDataService } from '@/types/protocols';
-import { Network } from '@/types/networks';
-import { AaveService } from './protocols/aave';
-import { log } from '@/utils/logger';
+import { Protocol, UserProtocolPosition, ProtocolDataService } from '../types/protocols';
+import { Network } from '../types/networks';
+import { AaveServiceFactory } from './protocols/aave/aave-factory';
+import { AaveConfigBuilder } from './protocols/aave/aave-config';
+import { log } from '../utils/logger';
+import { ENV } from '../config/env';
+import { NETWORK_CONFIGS } from '../types/networks';
 
 // Custom error interface for protocol service errors
 interface ServiceError extends Error {
@@ -41,7 +44,7 @@ export class ProtocolServiceFactory {
   }
 
   // Get or create a service instance for the specified protocol
-  static getService(protocol: Protocol): ProtocolDataService {
+  static async getService(protocol: Protocol, network: Network = Network.ETHEREUM): Promise<ProtocolDataService> {
     try {
       if (!protocol) {
         throw this.createError(
@@ -51,6 +54,7 @@ export class ProtocolServiceFactory {
       }
 
       // Return cached service instance if available
+      const cacheKey = `${protocol}-${network}`;
       if (this.services.has(protocol)) {
         const service = this.services.get(protocol);
         if (service) return service;
@@ -60,7 +64,19 @@ export class ProtocolServiceFactory {
       let service: ProtocolDataService;
       switch (protocol) {
         case Protocol.AAVE:
-          service = new AaveService();
+          // Use the AaveServiceFactory to create a properly configured service
+          const networkConfig = NETWORK_CONFIGS[network];
+          const configBuilder = new AaveConfigBuilder()
+            .withNetwork(network)
+            .withRpcUrl(networkConfig.rpcUrl)
+            .withProtocol(protocol);
+            
+          if (networkConfig.wsUrl) {
+            configBuilder.withWsUrl(networkConfig.wsUrl);
+          }
+          
+          // Create the service using the factory
+          service = await AaveServiceFactory.getInstance().createService(configBuilder.build());
           break;
         default:
           throw this.createError(
@@ -89,43 +105,57 @@ export class ProtocolServiceFactory {
 
   // Fetch user positions across all supported protocols
   static async getUserPositionsAcrossProtocols(
-    address: string,
-    network: Network = Network.ETHEREUM
+    userAddress: string,
+    protocols: Protocol[] = Object.values(Protocol)
   ): Promise<UserProtocolPosition[]> {
-    if (!address) {
+    if (!userAddress) {
       throw this.createError(
-        'Address parameter is required',
+        'User address is required for fetching positions',
         ErrorCode.MISSING_ADDRESS
       );
     }
 
-    try {
-      // Currently only fetching from AAVE, but prepared for multiple protocols
-      const service = this.getService(Protocol.AAVE);
-      const positions = await service.fetchUserPositions({
-        userAddress: address,
-        protocolSpecificFilters: { network }
-      });
-      
-      if (!positions || !Array.isArray(positions)) {
-        throw this.createError(
-          'Invalid positions data received',
-          ErrorCode.INVALID_POSITIONS,
-          { address }
-        );
-      }
+    const allPositions: UserProtocolPosition[] = [];
+    const errors: Error[] = [];
 
-      return positions;
-    } catch (error) {
-      // Re-throw service errors, wrap other errors
-      if ((error as ServiceError).code) {
-        throw error;
-      }
+    // Fetch positions from each protocol in parallel
+    await Promise.all(
+      protocols.map(async (protocol) => {
+        try {
+          const service = await this.getService(protocol);
+          const positions = await service.fetchUserPositions({
+            userAddress,
+            protocol
+          });
+
+          if (Array.isArray(positions)) {
+            allPositions.push(...positions);
+          } else {
+            throw this.createError(
+              `Invalid positions returned from ${protocol}`,
+              ErrorCode.INVALID_POSITIONS,
+              { protocol }
+            );
+          }
+        } catch (error) {
+          errors.push(error as Error);
+          log.error(`Error fetching positions for ${protocol}`, {
+            protocol,
+            error
+          });
+        }
+      })
+    );
+
+    // If no positions were found and there were errors, throw an error
+    if (allPositions.length === 0 && errors.length > 0) {
       throw this.createError(
-        'Failed to fetch user positions',
+        'Failed to fetch positions from any protocol',
         ErrorCode.POSITION_FETCH_ERROR,
-        { address, network, originalError: error }
+        { errors }
       );
     }
+
+    return allPositions;
   }
 }

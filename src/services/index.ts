@@ -1,13 +1,13 @@
 import { Protocol } from '@/types/protocols';
 import { Network } from '@/types/networks';
-import { BaseProtocolService } from '@/services/protocols/base';
-import { AaveService } from '@/services/protocols/aave';
+import { BaseProtocolService } from '@/services/protocols/common/base-protocol';
+import { AaveServiceFactory } from '@/services/protocols/aave/aave-factory';
 import { log } from '@/utils/logger';
 
 export class ServiceFactory {
   private static instances = new Map<string, BaseProtocolService>();
 
-  static getService(protocol: Protocol, network: Network): BaseProtocolService {
+  static async getService(protocol: Protocol, network: Network): Promise<BaseProtocolService> {
     // Validate network - only Ethereum is supported
     if (network !== Network.ETHEREUM) {
       const error = `Network ${network} not supported. Only Ethereum mainnet is currently supported.`;
@@ -23,7 +23,17 @@ export class ServiceFactory {
         log.error(error);
         throw new Error(error);
       }
-      this.instances.set(key, new AaveService(network));
+      
+      try {
+        // Use the new factory pattern
+        const aaveFactory = AaveServiceFactory.getInstance();
+        const service = await aaveFactory.getServiceForNetwork(network);
+        this.instances.set(key, service);
+      } catch (error) {
+        const errorMsg = `Failed to initialize service for ${protocol} on ${network}: ${error}`;
+        log.error(errorMsg);
+        throw new Error(errorMsg);
+      }
     }
 
     const service = this.instances.get(key);

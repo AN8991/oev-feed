@@ -9,76 +9,29 @@ datasource db {
 
 /// Stores unique user information and their associated DeFi positions
 model User {
-  id        String   @id @default(uuid())
-  address   String   @unique
+  id        String     @id @default(uuid())
+  address   String     @unique
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
   positions Position[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
 
   @@index([address])
 }
 
 /// Tracks the most recent active position for a user in a specific protocol
 model Position {
-  id            String   @id @default(uuid())
-  userId        String
-  user          User     @relation(fields: [userId], references: [id])
-  protocol      String
-  collateral    Decimal
-  debt          Decimal
-  healthFactor  Decimal
-  lastUpdated   DateTime @default(now())
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id           String   @id @default(uuid())
+  userId       String
+  protocol     String
+  collateral   Decimal
+  debt         Decimal
+  healthFactor Decimal
+  lastUpdated  DateTime @default(now())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  user         User     @relation(fields: [userId], references: [id])
 
   @@unique([userId, protocol])
   @@index([userId])
   @@index([protocol])
-}
-
-/// Maintains a historical record of user positions across different protocols and networks
-model UserPosition {
-  id            String   @id @default(uuid())
-  protocol      String
-  network       String
-  userAddress   String
-  collateral    String
-  debt          String
-  healthFactor  String
-  timestamp     Int
-  details       Json?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  @@index([protocol])
-  @@index([network])
-  @@index([userAddress])
-  @@index([timestamp])
-}
-
-/// Defines the type of transaction in DeFi protocols
-enum TransactionType {
-  BORROW
-  REPAY
-  SUPPLY
-  WITHDRAW
-}
-
-/// Tracks historical transaction records across different protocols and networks
-model Transaction {
-  id        String         @id @default(uuid())
-  timestamp Int
-  protocol  String
-  network   String
-  address   String
-  type      TransactionType
-  amount    String
-  asset     String
-  txHash    String
-  createdAt DateTime       @default(now())
-  updatedAt DateTime       @updatedAt
-
-  @@index([address])
-  @@index([protocol, network])
-  @@index([timestamp])
 }

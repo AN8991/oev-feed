@@ -1,0 +1,29 @@
+{
+  "blockNumber": 21965326,
+  "blockInfo": {
+    "number": 21965326,
+    "timestamp": 1740992435,
+    "hash": "0xbfa208dd3e6d7825b9ff5e09191e4b16ec030ee99535639563b547e5613b9552",
+    "transactionCount": 167
+  },
+  "userPositions": {
+    "aaveV3": {
+      "address": "0x57e04786e231af3343562c062e0d058f25dace9e",
+      "totalCollateral": "0.0",
+      "totalDebt": "0.0",
+      "availableBorrows": "0.0",
+      "liquidationThreshold": 0,
+      "ltv": 0,
+      "healthFactor": "115792089237316195423570985008687907853269984665640564039457.584007913129639935"
+    },
+    "aaveV2": {
+      "address": "0x57e04786e231af3343562c062e0d058f25dace9e",
+      "totalCollateral": "0.0",
+      "totalDebt": "0.0",
+      "availableBorrows": "0.0",
+      "liquidationThreshold": 0,
+      "ltv": 0,
+      "healthFactor": "115792089237316195423570985008687907853269984665640564039457.584007913129639935"
+    }
+  }
+}

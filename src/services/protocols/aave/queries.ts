@@ -10,6 +10,7 @@ export const GET_USER_POSITIONS = gql`
       currentVariableDebt
       reserve {
         symbol
+        id
         decimals
         price {
           priceInEth
@@ -20,6 +21,8 @@ export const GET_USER_POSITIONS = gql`
       healthFactor
       totalCollateralETH
       totalDebtETH
+      currentLiquidationThreshold
+      ltv
     }
   }
 `;

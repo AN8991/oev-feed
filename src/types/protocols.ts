@@ -92,10 +92,35 @@ export enum DataSourceType {
   SUBGRAPH = 'SUBGRAPH',    // Using The Graph protocol
 }
 
+// Enhanced query parameters with advanced filtering
+export interface EnhancedProtocolQueryParams extends ProtocolQueryParams {
+  liquidationThreshold?: number;
+  minHealthFactor?: number;
+  maxPositions?: number;
+  sortBy?: 'healthFactor' | 'liquidationRisk' | 'totalCollateral';
+  sortOrder?: 'asc' | 'desc';
+}
+
+// Comprehensive user position summary for multi-user retrieval
+export interface UserPositionSummary extends UserProtocolPosition {
+  riskMetrics?: {
+    liquidationProbability: number;
+    potentialLiquidationValue: string;
+    trendDirection: 'increasing' | 'decreasing' | 'stable';
+  };
+  comparisonMetrics?: {
+    averageHealthFactor: string;
+    percentileRanking: number;
+  };
+}
+
 // Interface for protocol data fetching service
 export interface ProtocolDataService {
   // Fetch user positions with flexible querying
   fetchUserPositions(params: ProtocolQueryParams): Promise<UserProtocolPosition[]>;
+  
+  // New method for enhanced position retrieval
+  fetchUserPositionsInRange(params: EnhancedProtocolQueryParams): Promise<UserPositionSummary[]>;
   
   // Determine the primary data source for this protocol
   getDataSourceType(): DataSourceType;

@@ -1,7 +1,7 @@
 import { Protocol } from '../../types/protocols';
 import { Network } from '../../types/networks';
-import { BaseProtocolService } from '../protocols/base';
-import { AaveService } from '../protocols/aave';
+import { BaseProtocolService } from '../protocols/common/base-protocol';
+import { AaveServiceFactory } from '../protocols/aave/aave-factory';
 import { log } from '../../utils/logger';
 
 export class ProtocolServiceFactory {
@@ -29,7 +29,9 @@ export class ProtocolServiceFactory {
       
       switch (protocol) {
         case Protocol.AAVE:
-          service = new AaveService();
+          // Use the new factory pattern
+          const aaveFactory = AaveServiceFactory.getInstance();
+          service = await aaveFactory.getServiceForNetwork(network);
           break;
         // Add cases for future protocols here
         default:
@@ -50,20 +52,15 @@ export class ProtocolServiceFactory {
     if (service) {
       await service.dispose();
       this.services.delete(key);
-      log.info(`Disposed service for ${protocol} on ${network}`);
+      log.info(`Disposed service instance for ${protocol} on ${network}`);
     }
   }
 
   async disposeAll(): Promise<void> {
-    const disposePromises: Promise<void>[] = [];
-    for (const [key, service] of this.services.entries()) {
-      disposePromises.push(service.dispose());
-      log.info(`Disposing service: ${key}`);
-    }
-    
-    await Promise.all(disposePromises);
+    const services = Array.from(this.services.values());
+    await Promise.all(services.map(service => service.dispose()));
     this.services.clear();
-    log.info('All protocol services disposed');
+    log.info('Disposed all protocol service instances');
   }
 }
 
@@ -71,10 +68,17 @@ export class ProtocolServiceFactory {
 process.on('SIGTERM', async () => {
   try {
     await ProtocolServiceFactory.getInstance().disposeAll();
-    log.info('Graceful shutdown completed');
-    process.exit(0);
+    log.info('Gracefully shut down protocol services');
   } catch (error) {
-    log.error('Error during shutdown', { error });
-    process.exit(1);
+    log.error('Error during protocol services shutdown', error);
+  }
+});
+
+process.on('SIGINT', async () => {
+  try {
+    await ProtocolServiceFactory.getInstance().disposeAll();
+    log.info('Gracefully shut down protocol services');
+  } catch (error) {
+    log.error('Error during protocol services shutdown', error);
   }
 });

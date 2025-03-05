@@ -1,89 +1,92 @@
 import { Network } from '../../../types/networks';
 import { Protocol } from '../../../types/protocols';
+import { ExtendedProtocolConfig, BaseConfigBuilder } from '../common/protocol-config';
 
-export interface AaveServiceConfig {
-  network: Network;
-  rpcUrl: string;
-  wsUrl?: string;
-  subgraphUrl?: string;
-  maxConnections?: number;
-  connectionTimeout?: number;
-  keepAliveTimeout?: number;
-  protocol: Protocol;
-  apiKey?: string;
-  retryAttempts?: number;
-  healthCheckInterval?: number;
+/**
+ * Aave protocol version
+ */
+export enum AaveVersion {
+  V2 = 'v2',
+  V3 = 'v3'
 }
 
-export class AaveConfigBuilder {
-  private config: Partial<AaveServiceConfig> = {};
+/**
+ * Configuration for Aave service
+ */
+export interface AaveConfig extends ExtendedProtocolConfig {
+  poolAddress: string;
+  dataProviderAddress: string;
+  oracleAddress: string;
+  version: AaveVersion;
+}
 
-  withNetwork(network: Network): AaveConfigBuilder {
-    this.config.network = network;
+/**
+ * Builder for Aave service configuration
+ */
+export class AaveConfigBuilder extends BaseConfigBuilder<AaveConfig> {
+  constructor() {
+    super();
+    // Set default protocol
+    this.withProtocol(Protocol.AAVE);
+    // Default to V3
+    this.config.version = AaveVersion.V3;
+  }
+
+  /**
+   * Set the pool address
+   * @param address The pool contract address
+   */
+  withPoolAddress(address: string): this {
+    this.config.poolAddress = address;
     return this;
   }
 
-  withRpcUrl(rpcUrl: string): AaveConfigBuilder {
-    this.config.rpcUrl = rpcUrl;
+  /**
+   * Set the data provider address
+   * @param address The data provider contract address
+   */
+  withDataProviderAddress(address: string): this {
+    this.config.dataProviderAddress = address;
     return this;
   }
 
-  withWsUrl(wsUrl: string): AaveConfigBuilder {
-    this.config.wsUrl = wsUrl;
+  /**
+   * Set the oracle address
+   * @param address The oracle contract address
+   */
+  withOracleAddress(address: string): this {
+    this.config.oracleAddress = address;
     return this;
   }
 
-  withSubgraphUrl(subgraphUrl: string): AaveConfigBuilder {
-    this.config.subgraphUrl = subgraphUrl;
+  /**
+   * Set the Aave protocol version
+   * @param version The Aave protocol version
+   */
+  withVersion(version: AaveVersion): this {
+    this.config.version = version;
     return this;
   }
 
-  withMaxConnections(maxConnections: number): AaveConfigBuilder {
-    this.config.maxConnections = maxConnections;
-    return this;
-  }
-
-  withConnectionTimeout(timeout: number): AaveConfigBuilder {
-    this.config.connectionTimeout = timeout;
-    return this;
-  }
-
-  withKeepAliveTimeout(timeout: number): AaveConfigBuilder {
-    this.config.keepAliveTimeout = timeout;
-    return this;
-  }
-
-  withProtocol(protocol: Protocol): AaveConfigBuilder {
-    this.config.protocol = protocol;
-    return this;
-  }
-
-  withApiKey(apiKey: string): AaveConfigBuilder {
-    this.config.apiKey = apiKey;
-    return this;
-  }
-
-  withRetryAttempts(attempts: number): AaveConfigBuilder {
-    this.config.retryAttempts = attempts;
-    return this;
-  }
-
-  withHealthCheckInterval(interval: number): AaveConfigBuilder {
-    this.config.healthCheckInterval = interval;
-    return this;
-  }
-
+  /**
+   * Validate the configuration
+   */
   validate(): void {
-    const requiredFields: (keyof AaveServiceConfig)[] = ['network', 'rpcUrl', 'protocol'];
-    const missingFields = requiredFields.filter(field => !this.config[field]);
+    super.validate();
+    
+    const aaveRequiredFields: (keyof AaveConfig)[] = [
+      'poolAddress', 
+      'dataProviderAddress', 
+      'oracleAddress',
+      'version'
+    ];
+    
+    const missingFields = aaveRequiredFields.filter(
+      field => !this.config[field as keyof typeof this.config]
+    );
     
     if (missingFields.length > 0) {
-      throw new Error(`Missing required configuration fields: ${missingFields.join(', ')}`);
+      throw new Error(`Missing required Aave configuration fields: ${missingFields.join(', ')}`);
     }
-  }
-
-  build(): AaveServiceConfig {
-    this.validate();
-    return this.config as AaveServiceConfig;
   }
 }

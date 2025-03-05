@@ -1,14 +1,14 @@
 // Mock configurations
-import { ENV } from 'config/env';
+import { ENV } from '@/config/env';
 
-jest.mock('config/env', () => ({
+jest.mock('@/config/env', () => ({
   ENV: {
     getAlchemyEthereumRpcUrl: () => 'https://eth-mainnet.mock.url',
     getAlchemyEthereumWsUrl: () => 'wss://eth-mainnet.mock.url',
   }
 }));
 
-jest.mock('config/contracts', () => ({
+jest.mock('@/config/contracts', () => ({
   CONTRACT_ADDRESSES: {
     AAVE: {
       V3_ETH_MAINNET: {
@@ -21,7 +21,7 @@ jest.mock('config/contracts', () => ({
 }));
 
 // Mock the Network enum
-jest.mock('types/networks', () => ({
+jest.mock('@/types/networks', () => ({
   Network: {
     ETHEREUM: 'ethereum',
     // Add other networks as needed
@@ -29,7 +29,7 @@ jest.mock('types/networks', () => ({
 }));
 
 // Mock the protocols types
-jest.mock('types/protocols', () => ({
+jest.mock('@/types/protocols', () => ({
   Protocol: {
     AAVE: 'aave'
   },
@@ -40,7 +40,7 @@ jest.mock('types/protocols', () => ({
 }));
 
 // Mock logger
-jest.mock('utils/logger', () => ({
+jest.mock('@/utils/logger', () => ({
   log: {
     info: jest.fn(),
     error: jest.fn(),
@@ -50,7 +50,7 @@ jest.mock('utils/logger', () => ({
 }));
 
 // Mock NotificationService
-jest.mock('services/notifications', () => {
+jest.mock('@/services/notifications', () => {
   const mockNotificationService = {
     handlePositionChange: jest.fn(),
     handleHealthFactorChange: jest.fn(),
@@ -63,12 +63,13 @@ jest.mock('services/notifications', () => {
   };
 });
 
-import { AaveService } from 'services/protocols/aave';
-import { Network } from 'types/networks';
-import { Protocol, DataSourceType, ProtocolQueryParams } from 'types/protocols';
+import { AaveService } from '@/services/protocols/aave/aave-service';
+import { AaveConfig, AaveConfigBuilder } from '@/services/protocols/aave/aave-config';
+import { Network } from '@/types/networks';
+import { Protocol, DataSourceType, ProtocolQueryParams } from '@/types/protocols';
 import { ethers } from 'ethers';
 import { PrismaClient } from '@prisma/client';
-import { log } from 'utils/logger';
+import { log } from '@/utils/logger';
 
 // Mock Prisma
 const mockPrismaClient = {
@@ -99,552 +100,220 @@ afterAll(() => {
 
 describe('AaveService', () => {
   let service: AaveService;
-  let mockProvider: jest.Mocked<ethers.JsonRpcProvider>;
-  let mockWsProvider: jest.Mocked<ethers.WebSocketProvider>;
+  let config: AaveConfig;
 
   beforeEach(() => {
     jest.clearAllMocks();
     
-    // Mock ethers Provider
-    mockProvider = {
-      // Add necessary provider methods
-    } as any;
-    
-    mockWsProvider = {
-      // Add necessary WebSocket provider methods
-    } as any;
-
-    (ethers.JsonRpcProvider as jest.Mock).mockImplementation(() => mockProvider);
-    (ethers.WebSocketProvider as jest.Mock).mockImplementation(() => mockWsProvider);
-    (ethers.Contract as jest.Mock).mockImplementation((address) => ({
-      address,
-      // Add necessary contract methods
-    }));
-
-    service = new AaveService(Network.ETHEREUM);
+    // Create a test configuration
+    config = new AaveConfigBuilder()
+      .withNetwork(Network.ETHEREUM)
+      .withRpcUrl('https://eth-mainnet.mock.url')
+      .withPoolAddress('0x123')
+      .withDataProviderAddress('0x456')
+      .withOracleAddress('0x789')
+      .build();
+      
+    service = new AaveService(config);
   });
 
-  describe('constructor', () => {
-    beforeEach(() => {
-      jest.clearAllMocks();
-    });
-
-    it('should initialize with default network', () => {
-      const service = new AaveService();
-      expect(ethers.JsonRpcProvider).toHaveBeenCalledWith('https://eth-mainnet.mock.url');
-      expect(ethers.WebSocketProvider).toHaveBeenCalledWith('wss://eth-mainnet.mock.url');
-      expect(PrismaClient).toHaveBeenCalled();
-    });
-
-    it('should initialize contracts correctly', () => {
-      jest.clearAllMocks();
-      const service = new AaveService();
-      expect(ethers.Contract).toHaveBeenCalledTimes(3);
-      expect(ethers.Contract).toHaveBeenCalledWith('0x123', expect.any(Array), expect.any(Object));
-      expect(ethers.Contract).toHaveBeenCalledWith('0x456', expect.any(Array), expect.any(Object));
-      expect(ethers.Contract).toHaveBeenCalledWith('0x789', expect.any(Array), expect.any(Object));
-    });
-
-    it('should not initialize WebSocket provider when wsUrl is not provided', () => {
-      const originalMock = jest.requireMock('config/env');
-      originalMock.ENV.getAlchemyEthereumWsUrl = () => '';
-      
-      const service = new AaveService();
-      expect(ethers.WebSocketProvider).not.toHaveBeenCalled();
-      
-      // Restore the original mock
-      originalMock.ENV.getAlchemyEthereumWsUrl = () => 'wss://eth-mainnet.mock.url';
-    });
-
-    it('should throw error when contract addresses are not found', () => {
-      const originalMock = jest.requireMock('config/contracts');
-      originalMock.CONTRACT_ADDRESSES.AAVE = {};
-      
-      expect(() => new AaveService()).toThrow('Aave V3 contracts not found');
-      
-      // Restore the original mock
-      originalMock.CONTRACT_ADDRESSES.AAVE = {
-        V3_ETH_MAINNET: {
-          POOL: '0x123',
-          POOL_DATA_PROVIDER: '0x456',
-          ORACLE: '0x789',
-        },
-      };
-    });
+  afterEach(async () => {
+    await service.dispose();
   });
 
-  describe('getDataSourceType', () => {
-    it('should return ON_CHAIN when no subgraph URL is provided', () => {
-      expect(service.getDataSourceType()).toBe(DataSourceType.ON_CHAIN);
+  describe('initialization', () => {
+    it('should initialize with correct configuration', async () => {
+      expect(service).toBeDefined();
+      expect(service.getProtocol()).toBe(Protocol.AAVE);
+      expect(service.getNetwork()).toBe(Network.ETHEREUM);
+      
+      await service.initialize();
+      expect(service.isInitialized()).toBe(true);
     });
 
-    it('should return SUBGRAPH when subgraph URL is provided', () => {
-      service = new AaveService(Network.ETHEREUM);
-      (service as any).subgraphUrl = 'https://api.thegraph.com/subgraphs/name/aave/protocol-v3';
-      expect(service.getDataSourceType()).toBe(DataSourceType.SUBGRAPH);
+    it('should use WebSocket provider when wsUrl is provided', async () => {
+      const wsConfig = new AaveConfigBuilder()
+        .withNetwork(Network.ETHEREUM)
+        .withRpcUrl('https://eth-mainnet.mock.url')
+        .withWsUrl('wss://eth-mainnet.mock.url')
+        .withPoolAddress('0x123')
+        .withDataProviderAddress('0x456')
+        .withOracleAddress('0x789')
+        .build();
+        
+      const wsService = new AaveService(wsConfig);
+      await wsService.initialize();
+      
+      // Check if WebSocketProvider was used
+      expect(ethers.WebSocketProvider).toHaveBeenCalled();
+      
+      await wsService.dispose();
     });
-  });
 
-  describe('getPositions', () => {
-    const mockQueryParams = {
-      protocol: Protocol.AAVE,
-      network: Network.ETHEREUM,
-      fromTimestamp: 1000,
-      toTimestamp: 2000,
-    };
-
-    it('should fetch and transform positions correctly', async () => {
-      const mockRawPositions = [
-        {
-          protocol: Protocol.AAVE,
-          network: Network.ETHEREUM,
-          userAddress: '0x123',
-          collateral: '1000',
-          debt: '500',
-          healthFactor: '2',
-          timestamp: new Date('2024-01-01').getTime(),
-          details: JSON.stringify({
-            borrowedAssets: '[]',
-            liquidationRisk: {
-              threshold: '0.8',
-              currentLTV: '0.5'
-            }
-          })
-        }
-      ];
-
-      mockPrismaClient.userPosition.findMany.mockResolvedValue(mockRawPositions);
-
-      const result = await (service as any).getPositions(mockQueryParams);
-
-      expect(result).toHaveLength(1);
-      expect(result[0]).toMatchObject({
-        protocol: Protocol.AAVE,
-        network: Network.ETHEREUM,
-        userAddress: '0x123',
-        collateral: 1000,
-        debt: 500,
-        healthFactor: '2'
+    it('should throw error when initialization fails', async () => {
+      (ethers.JsonRpcProvider as jest.Mock).mockImplementationOnce(() => {
+        throw new Error('Connection failed');
       });
+      
+      const failConfig = new AaveConfigBuilder()
+        .withNetwork(Network.ETHEREUM)
+        .withRpcUrl('https://eth-mainnet.mock.url')
+        .withPoolAddress('0x123')
+        .withDataProviderAddress('0x456')
+        .withOracleAddress('0x789')
+        .build();
+        
+      const failService = new AaveService(failConfig);
+      
+      await expect(failService.initialize()).rejects.toThrow('Connection failed');
+    });
+  });
+
+  describe('getUserPositions', () => {
+    beforeEach(async () => {
+      await service.initialize();
     });
 
-    it('should handle positions with string details', async () => {
-      const mockRawPositions = [{
-        protocol: Protocol.AAVE,
-        network: Network.ETHEREUM,
-        userAddress: '0x123',
-        collateral: '1000',
-        debt: '500',
-        healthFactor: '2',
-        timestamp: new Date('2024-01-01').getTime(),
-        details: 'some string details'
-      }];
-
-      mockPrismaClient.userPosition.findMany.mockResolvedValue(mockRawPositions);
-
-      const result = await (service as any).getPositions(mockQueryParams);
-
-      expect(result).toHaveLength(1);
-      expect(result[0].details).toBe('some string details');
-    });
-
-    it('should handle positions with null values', async () => {
-      const mockRawPositions = [{
-        protocol: Protocol.AAVE,
-        network: Network.ETHEREUM,
-        userAddress: '0x123',
-        collateral: null,
-        debt: null,
-        healthFactor: '0',
-        timestamp: new Date('2024-01-01').getTime(),
-        details: null
-      }];
-
-      mockPrismaClient.userPosition.findMany.mockResolvedValue(mockRawPositions);
-
-      const result = await (service as any).getPositions(mockQueryParams);
-
-      expect(result).toHaveLength(1);
-      expect(result[0].collateral).toBeNull();
-      expect(result[0].debt).toBeNull();
-    });
-
-    it('should handle database errors', async () => {
-      const error = new Error('Database error');
-      mockPrismaClient.userPosition.findMany.mockRejectedValue(error);
-
-      await expect((service as any).getPositions(mockQueryParams)).rejects.toThrow('Database error');
-      expect(console.error).toHaveBeenCalledWith('Error fetching Aave positions:', error);
-    });
-
-    it('should handle positions with complex details object', async () => {
-      const liquidationRisk = {
-        threshold: '0.8',
-        currentLTV: '0.5'
+    it('should fetch positions from on-chain data', async () => {
+      // Mock contract methods
+      const mockContract = {
+        getUserAccountData: jest.fn().mockResolvedValue({
+          totalCollateralBase: ethers.parseUnits('100', 18),
+          totalDebtBase: ethers.parseUnits('50', 18),
+          healthFactor: ethers.parseUnits('2', 18)
+        }),
+        getReservesList: jest.fn().mockResolvedValue(['0xtoken1', '0xtoken2'])
       };
-
-      const borrowedAssets = [{
-        symbol: 'DAI',
-        amount: '1000'
-      }];
-
-      const mockRawPositions = [{
-        protocol: Protocol.AAVE,
-        network: Network.ETHEREUM,
+      
+      (ethers.Contract as jest.Mock).mockReturnValue(mockContract);
+      
+      const params: ProtocolQueryParams = { 
         userAddress: '0x123',
-        collateral: '1000',
-        debt: '500',
-        healthFactor: '2',
-        timestamp: new Date('2024-01-01').getTime(),
-        details: {
-          borrowedAssets: JSON.stringify(borrowedAssets),
-          liquidationRisk
-        }
-      }];
-
-      mockPrismaClient.userPosition.findMany.mockResolvedValue(mockRawPositions);
-
-      const result = await (service as any).getPositions(mockQueryParams);
-
-      expect(result).toHaveLength(1);
-      expect(result[0].borrowedAssets).toEqual(borrowedAssets);
-      expect(result[0].liquidationRisk).toEqual(liquidationRisk);
+        network: Network.ETHEREUM
+      };
+      
+      const positions = await service.getUserPositions(params);
+      
+      expect(positions).toBeDefined();
+      expect(mockContract.getUserAccountData).toHaveBeenCalledWith('0x123');
+      expect(mockContract.getReservesList).toHaveBeenCalled();
     });
 
-    it('should handle invalid JSON in details', async () => {
-      const mockRawPositions = [{
-        protocol: Protocol.AAVE,
-        network: Network.ETHEREUM,
+    it('should handle errors when fetching positions', async () => {
+      // Mock contract methods to throw error
+      const mockContract = {
+        getUserAccountData: jest.fn().mockRejectedValue(new Error('Contract error'))
+      };
+      
+      (ethers.Contract as jest.Mock).mockReturnValue(mockContract);
+      
+      const params: ProtocolQueryParams = { 
         userAddress: '0x123',
-        collateral: '1000',
-        debt: '500',
-        healthFactor: '2',
-        timestamp: new Date('2024-01-01').getTime(),
-        details: 'invalid json'
-      }];
-
-      mockPrismaClient.userPosition.findMany.mockResolvedValue(mockRawPositions);
-
-      const result = await (service as any).getPositions(mockQueryParams);
-
-      expect(result).toHaveLength(1);
-      expect(result[0].borrowedAssets).toEqual([]);
-      expect(result[0].liquidationRisk).toBeUndefined();
-    });
-
-    it('should handle positions with missing details fields', async () => {
-      const mockRawPositions = [{
-        protocol: Protocol.AAVE,
-        network: Network.ETHEREUM,
-        userAddress: '0x123',
-        collateral: '1000',
-        debt: '500',
-        healthFactor: '2',
-        timestamp: new Date('2024-01-01').getTime(),
-        details: {
-          // Empty details object to test undefined handling
-        }
-      }];
-
-      mockPrismaClient.userPosition.findMany.mockResolvedValue(mockRawPositions);
-
-      const result = await (service as any).getPositions(mockQueryParams);
-
-      expect(result).toHaveLength(1);
-      expect(result[0].borrowedAssets).toEqual([]);
-      expect(result[0].liquidationRisk).toBeUndefined();
-    });
-
-    it('should handle positions with non-string borrowedAssets', async () => {
-      const mockRawPositions = [{
-        protocol: Protocol.AAVE,
-        network: Network.ETHEREUM,
-        userAddress: '0x123',
-        collateral: '1000',
-        debt: '500',
-        healthFactor: '2',
-        timestamp: new Date('2024-01-01').getTime(),
-        details: {
-          borrowedAssets: 123, // Non-string value
-          liquidationRisk: {
-            threshold: '0.8',
-            currentLTV: '0.5'
-          }
-        }
-      }];
-
-      mockPrismaClient.userPosition.findMany.mockResolvedValue(mockRawPositions);
-
-      const result = await (service as any).getPositions(mockQueryParams);
-
-      expect(result).toHaveLength(1);
-      expect(result[0].borrowedAssets).toEqual([]);
-      expect(result[0].liquidationRisk).toBeDefined();
-    });
-
-    it('should handle positions with invalid borrowedAssets JSON', async () => {
-      const mockRawPositions = [{
-        protocol: Protocol.AAVE,
-        network: Network.ETHEREUM,
-        userAddress: '0x123',
-        collateral: '1000',
-        debt: '500',
-        healthFactor: '2',
-        timestamp: new Date('2024-01-01').getTime(),
-        details: {
-          borrowedAssets: '{invalid:json}',
-          liquidationRisk: {
-            threshold: '0.8',
-            currentLTV: '0.5'
-          }
-        }
-      }];
-
-      mockPrismaClient.userPosition.findMany.mockResolvedValue(mockRawPositions);
-
-      const result = await (service as any).getPositions(mockQueryParams);
-
-      expect(result).toHaveLength(1);
-      expect(result[0].borrowedAssets).toEqual([]);
-      expect(result[0].liquidationRisk).toBeDefined();
-    });
-
-    it('should handle positions with null collateral and debt', async () => {
-      const mockRawPositions = [{
-        protocol: Protocol.AAVE,
-        network: Network.ETHEREUM,
-        userAddress: '0x123',
-        collateral: null,
-        debt: null,
-        healthFactor: '2',
-        timestamp: new Date('2024-01-01').getTime(),
-        details: {}
-      }];
-
-      mockPrismaClient.userPosition.findMany.mockResolvedValue(mockRawPositions);
-
-      const result = await (service as any).getPositions(mockQueryParams);
-
-      expect(result).toHaveLength(1);
-      expect(result[0].collateral).toBeNull();
-      expect(result[0].debt).toBeNull();
-    });
-
-    it('should handle positions with string details and liquidationRisk', async () => {
-      const mockRawPositions = [{
-        protocol: Protocol.AAVE,
-        network: Network.ETHEREUM,
-        userAddress: '0x123',
-        collateral: '1000',
-        debt: '500',
-        healthFactor: '2',
-        timestamp: new Date('2024-01-01').getTime(),
-        details: JSON.stringify({
-          liquidationRisk: {
-            threshold: '0.8',
-            currentLTV: '0.5'
-          }
-        })
-      }];
-
-      mockPrismaClient.userPosition.findMany.mockResolvedValue(mockRawPositions);
-
-      const result = await (service as any).getPositions(mockQueryParams);
-
-      expect(result).toHaveLength(1);
-      expect(result[0].borrowedAssets).toEqual([]);
-      expect(result[0].liquidationRisk).toBeUndefined();
-    });
-
-    it('should handle positions with non-array borrowedAssets JSON', async () => {
-      const mockRawPositions = [{
-        protocol: Protocol.AAVE,
-        network: Network.ETHEREUM,
-        userAddress: '0x123',
-        collateral: '1000',
-        debt: '500',
-        healthFactor: '2',
-        timestamp: new Date('2024-01-01').getTime(),
-        details: {
-          borrowedAssets: '{"notAnArray": true}', // Valid JSON but not an array
-          liquidationRisk: {
-            threshold: '0.8',
-            currentLTV: '0.5'
-          }
-        }
-      }];
-
-      mockPrismaClient.userPosition.findMany.mockResolvedValue(mockRawPositions);
-
-      const result = await (service as any).getPositions(mockQueryParams);
-
-      expect(result).toHaveLength(1);
-      expect(result[0].borrowedAssets).toEqual([]);
-      expect(result[0].liquidationRisk).toBeDefined();
+        network: Network.ETHEREUM
+      };
+      
+      await expect(service.getUserPositions(params)).rejects.toThrow('Contract error');
+      expect(log.error).toHaveBeenCalled();
     });
   });
 
   describe('getHealthFactor', () => {
-    const mockQueryParams = {
-      protocol: Protocol.AAVE,
-      network: Network.ETHEREUM,
-      fromTimestamp: 1000,
-      toTimestamp: 2000,
-    };
+    beforeEach(async () => {
+      await service.initialize();
+    });
 
-    it('should return the latest health factor', async () => {
-      const mockPosition = {
-        healthFactor: '1.5'
+    it('should fetch health factor from on-chain data', async () => {
+      // Mock contract methods
+      const mockContract = {
+        getUserAccountData: jest.fn().mockResolvedValue({
+          healthFactor: ethers.parseUnits('2', 18)
+        })
       };
-
-      mockPrismaClient.userPosition.findFirst.mockResolvedValue(mockPosition);
-
-      const result = await service.getHealthFactor(mockQueryParams);
-      expect(result).toBe('1.5');
+      
+      (ethers.Contract as jest.Mock).mockReturnValue(mockContract);
+      
+      const params: ProtocolQueryParams = { 
+        userAddress: '0x123',
+        network: Network.ETHEREUM
+      };
+      
+      const healthFactor = await service.getHealthFactor(params);
+      
+      expect(healthFactor).toBe('2.0');
+      expect(mockContract.getUserAccountData).toHaveBeenCalledWith('0x123');
     });
 
-    it('should return "0" when no positions found', async () => {
-      mockPrismaClient.userPosition.findFirst.mockResolvedValue(null);
-
-      const result = await service.getHealthFactor(mockQueryParams);
-      expect(result).toBe('0');
-    });
-
-    it('should handle database errors', async () => {
-      const error = new Error('Database error');
-      mockPrismaClient.userPosition.findFirst.mockRejectedValue(error);
-
-      await expect(service.getHealthFactor(mockQueryParams)).rejects.toThrow('Database error');
-      expect(log.error).toHaveBeenCalledWith('Error calculating Aave health factor', error);
+    it('should handle errors when fetching health factor', async () => {
+      // Mock contract methods to throw error
+      const mockContract = {
+        getUserAccountData: jest.fn().mockRejectedValue(new Error('Contract error'))
+      };
+      
+      (ethers.Contract as jest.Mock).mockReturnValue(mockContract);
+      
+      const params: ProtocolQueryParams = { 
+        userAddress: '0x123',
+        network: Network.ETHEREUM
+      };
+      
+      await expect(service.getHealthFactor(params)).rejects.toThrow('Contract error');
+      expect(log.error).toHaveBeenCalled();
     });
   });
 
-  describe('fetchUserPositions', () => {
-    it('should fetch user positions with correct parameters', async () => {
-      const mockPositions = [{
-        protocol: Protocol.AAVE,
-        network: Network.ETHEREUM,
-        userAddress: '0x123',
-        collateral: '1000',
-        debt: '500',
-        healthFactor: '2',
-        timestamp: 1704067200,
-        borrowedAssets: [],
-        liquidationRisk: undefined,
-        details: {}
-      }];
-
-      const mockParams = {
-        userAddress: '0x123',
-        fromTimestamp: 1000,
-        toTimestamp: 2000
-      };
-
-      jest.spyOn(service as any, 'getPositions').mockResolvedValue(mockPositions);
-
-      const result = await service.fetchUserPositions(mockParams);
-
-      expect(result).toHaveLength(1);
-      expect(result[0].userAddress).toBe('0x123');
-      expect(result[0].borrowedAssets).toEqual([]);
+  describe('data source fallback', () => {
+    beforeEach(async () => {
+      await service.initialize();
     });
 
-    it('should handle empty positions', async () => {
-      (service as any).getPositions = jest.fn().mockResolvedValue([]);
-
-      const params: ProtocolQueryParams = {
-        userAddress: '0x123'
-      };
-
-      const result = await service.fetchUserPositions(params);
-      expect(result).toHaveLength(0);
+    it('should use on-chain data source by default', () => {
+      expect(service.getDataSourceType()).toBe(DataSourceType.ON_CHAIN);
     });
 
-    it('should use current timestamp when toTimestamp is not provided', async () => {
-      const mockDate = 1643673600000; // 2022-02-01
-      jest.spyOn(Date, 'now').mockImplementation(() => mockDate);
-
-      (service as any).getPositions = jest.fn().mockResolvedValue([]);
-
-      const params: ProtocolQueryParams = {
-        userAddress: '0x123',
-        fromTimestamp: 1000
+    it('should fall back to subgraph when on-chain fails', async () => {
+      // Mock subgraph URL
+      const subgraphConfig = new AaveConfigBuilder()
+        .withNetwork(Network.ETHEREUM)
+        .withRpcUrl('https://eth-mainnet.mock.url')
+        .withPoolAddress('0x123')
+        .withDataProviderAddress('0x456')
+        .withOracleAddress('0x789')
+        .withSubgraphUrl('https://api.thegraph.com/subgraphs/name/aave/protocol')
+        .build();
+        
+      const subgraphService = new AaveService(subgraphConfig);
+      await subgraphService.initialize();
+      
+      // Mock contract methods to throw error
+      const mockContract = {
+        getUserAccountData: jest.fn().mockRejectedValue(new Error('Contract error')),
+        getReservesList: jest.fn().mockRejectedValue(new Error('Contract error'))
       };
-
-      await service.fetchUserPositions(params);
-
-      expect((service as any).getPositions).toHaveBeenCalledWith({
-        protocol: Protocol.AAVE,
-        network: Network.ETHEREUM,
-        fromTimestamp: 1000,
-        toTimestamp: Math.floor(mockDate / 1000)
+      
+      (ethers.Contract as jest.Mock).mockReturnValue(mockContract);
+      
+      // Mock fetch for subgraph
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: jest.fn().mockResolvedValue({
+          data: {
+            user: {
+              id: '0x123',
+              reserves: []
+            }
+          }
+        })
       });
-    });
-
-    it('should handle errors gracefully', async () => {
-      (service as any).getPositions = jest.fn().mockRejectedValue(new Error('Network error'));
-
-      const params: ProtocolQueryParams = {
-        userAddress: '0x123'
-      };
-
-      await expect(service.fetchUserPositions(params)).rejects.toThrow('Network error');
-    });
-
-    it('should handle fetchUserPositions with userAddress', async () => {
-      const mockPositions = [{
-        protocol: Protocol.AAVE,
-        network: Network.ETHEREUM,
+      
+      const params: ProtocolQueryParams = { 
         userAddress: '0x123',
-        collateral: '1000',
-        debt: '500',
-        healthFactor: '2',
-        timestamp: 1704067200,
-        borrowedAssets: [],
-        liquidationRisk: undefined,
-        details: {}
-      }];
-
-      const mockParams = {
-        userAddress: '0x123',
-        fromTimestamp: 1000,
-        toTimestamp: 2000
+        network: Network.ETHEREUM
       };
-
-      jest.spyOn(service as any, 'getPositions').mockResolvedValue(mockPositions);
-
-      const result = await service.fetchUserPositions(mockParams);
-
-      expect(result).toHaveLength(1);
-      expect(result[0].userAddress).toBe('0x123');
-      expect(result[0].borrowedAssets).toEqual([]);
-    });
-
-    it('should handle fetchUserPositions without userAddress', async () => {
-      const mockPositions = [{
-        protocol: Protocol.AAVE,
-        network: Network.ETHEREUM,
-        userAddress: '',
-        collateral: '1000',
-        debt: '500',
-        healthFactor: '2',
-        timestamp: 1704067200,
-        borrowedAssets: [],
-        liquidationRisk: undefined,
-        details: {}
-      }];
-
-      const mockParams = {
-        fromTimestamp: 1000
-      };
-
-      jest.spyOn(service as any, 'getPositions').mockResolvedValue(mockPositions);
-
-      const result = await service.fetchUserPositions(mockParams);
-
-      expect(result).toHaveLength(1);
-      expect(result[0].userAddress).toBe('');
-      expect(result[0].borrowedAssets).toEqual([]);
+      
+      // This should not throw since it will fall back to subgraph
+      await expect(subgraphService.getUserPositions(params)).resolves.not.toThrow();
+      
+      await subgraphService.dispose();
     });
   });
 });

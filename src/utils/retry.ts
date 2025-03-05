@@ -3,7 +3,7 @@ interface RetryOptions {
   maxAttempts?: number;     // Maximum number of retry attempts
   delay?: number;           // Initial delay between retries (ms)
   backoffFactor?: number;   // Multiplier for exponential backoff
-  shouldRetry?: (error: any) => boolean; // Custom retry condition
+  shouldRetry?: (error: unknown) => boolean; // Custom retry condition
 }
 
 // Retry a function with configurable retry strategy
@@ -19,7 +19,7 @@ export async function retry<T>(
     shouldRetry = () => true,
   } = options;
 
-  let lastError: any;
+  let lastError: unknown;
   let currentDelay = delay;
 
   // Attempt to execute the function with retries

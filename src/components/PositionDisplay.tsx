@@ -1,8 +1,8 @@
-import { UserPosition } from '@/types/protocols';
+import { UserPositionSummary } from '@/types/protocols';
 import { formatUnits } from 'ethers';
 
 interface PositionDisplayProps {
-  positions: UserPosition[];
+  positions: UserPositionSummary[];
   loading: boolean;
 }
 
@@ -29,23 +29,35 @@ export function PositionDisplay({ positions, loading }: PositionDisplayProps) {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <p className="text-sm text-gray-600">Total Supply</p>
-                <p className="font-medium">{formatUnits(BigInt(position.totalSupply), 18)} {position.symbol}</p>
+                <p className="font-medium">{formatUnits(BigInt(position.totalSupply || '0'), 18)} {position.symbol}</p>
               </div>
               <div>
                 <p className="text-sm text-gray-600">Total Borrow</p>
-                <p className="font-medium">{formatUnits(BigInt(position.totalBorrow), 18)} {position.symbol}</p>
+                <p className="font-medium">{formatUnits(BigInt(position.totalBorrow || '0'), 18)} {position.symbol}</p>
               </div>
               <div>
                 <p className="text-sm text-gray-600">Available Liquidity</p>
-                <p className="font-medium">{formatUnits(BigInt(position.availableLiquidity), 18)} {position.symbol}</p>
+                <p className="font-medium">{formatUnits(BigInt(position.availableLiquidity || '0'), 18)} {position.symbol}</p>
               </div>
               <div>
                 <p className="text-sm text-gray-600">Price (ETH)</p>
                 <p className="font-medium">{position.priceInEth ? formatUnits(BigInt(position.priceInEth), 18) : 'N/A'} ETH</p>
               </div>
+              <div>
+                <p className="text-sm text-gray-600">Liquidation Risk</p>
+                <p className="font-medium">
+                  {position.riskMetrics?.liquidationProbability 
+                    ? `${(position.riskMetrics.liquidationProbability * 100).toFixed(2)}%` 
+                    : 'N/A'}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Health Factor</p>
+                <p className="font-medium">{position.healthFactor || 'N/A'}</p>
+              </div>
             </div>
             <p className="text-xs text-gray-500 mt-2">
-              Last Updated: {new Date(position.timestamp * 1000).toLocaleString()}
+              Last Updated: {position.timestamp ? new Date(position.timestamp * 1000).toLocaleString() : 'N/A'}
             </p>
           </div>
         ))}
