@@ -27,7 +27,7 @@ export interface UserProtocolPosition {
   // Core identification
   protocol: Protocol;      // Which protocol (e.g., Aave)
   network: Network;        // Blockchain network
-  version?: string;        // Optional to maintain backward compatibility
+  version: string;         // Protocol version (e.g., v2, v3)
   userAddress: string;     // Wallet address
   
   // Collateral and debt information
@@ -49,7 +49,7 @@ export interface UserProtocolPosition {
   }[];
   
   // Timestamp information
-  timestamp: number;       // When position was captured
+  fetchedTimestamp: number;  // When position data was fetched from blockchain
   
   // Optional metadata for historical or aggregated data
   periodStart?: number;    // Start of tracking period

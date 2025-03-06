@@ -62,6 +62,9 @@ npm run dev
 Visit [http://localhost:3000](http://localhost:3000) to see the application.
 ```
 
+# Test Scripts Run (Only for Backend testing)
+npx ts-node scripts/test-aave-fetch.ts
+
 ## Project Structure
 
 ```

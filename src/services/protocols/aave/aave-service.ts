@@ -238,6 +238,7 @@ export class AaveService extends BaseProtocolService {
         const position: UserProtocolPosition = {
           protocol: Protocol.AAVE,
           network: this.network,
+          version: this.version,
           userAddress: normalizedUserAddress,
           collateral: ethers.formatEther(
             typeof totalCollateral === 'bigint' 
@@ -249,8 +250,8 @@ export class AaveService extends BaseProtocolService {
               ? totalDebt 
               : BigInt(totalDebt.toString())
           ),
-          healthFactor: parsedHealthFactor,
-          timestamp: Math.floor(Date.now() / 1000),
+          healthFactor: this.normalizeHealthFactor(parsedHealthFactor),
+          fetchedTimestamp: Math.floor(Date.now() / 1000),
           borrowedAssets: [], // Add empty array for consistency
           liquidationRisk: {
             threshold: liquidationThreshold?.toString() || '0',
@@ -272,8 +273,7 @@ export class AaveService extends BaseProtocolService {
                 typeof healthFactor === 'bigint'
                   ? healthFactor
                   : BigInt(healthFactor.toString())
-              ).toString(),
-              version: this.version
+              ).toString()
             }
           }
         };
@@ -363,12 +363,17 @@ export class AaveService extends BaseProtocolService {
       const positions: UserProtocolPosition[] = subgraphPositions.map((position: any) => ({
         protocol: Protocol.AAVE,
         network: this.network,
+        version: this.version,
         userAddress: userAddress,
         collateral: position.collateral || '0',
         debt: position.debt || '0',
-        healthFactor: position.healthFactor || '0',
-        timestamp: position.timestamp || Math.floor(Date.now() / 1000),
-        borrowedAssets: [], // Add empty array for borrowedAssets
+        healthFactor: this.normalizeHealthFactor(position.healthFactor || '0'),
+        fetchedTimestamp: position.timestamp || Math.floor(Date.now() / 1000),
+        borrowedAssets: position.borrowedAssets || [], 
+        liquidationRisk: {
+          threshold: position.currentLiquidationThreshold || '0',
+          currentLTV: position.ltv || '0'
+        },
         details: {
           subgraphData: position // Preserve original subgraph data
         }
@@ -477,12 +482,13 @@ export class AaveService extends BaseProtocolService {
       const basePosition: UserProtocolPosition = {
         protocol: Protocol.AAVE,
         network: this.network,
+        version: this.version,
         userAddress,
-        healthFactor,
+        healthFactor: this.normalizeHealthFactor(healthFactor),
         collateral: totalCollateral,
         debt: totalDebt,
         borrowedAssets,
-        timestamp: Math.floor(Date.now() / 1000),
+        fetchedTimestamp: Math.floor(Date.now() / 1000),
         liquidationRisk: {
           threshold: userData.currentLiquidationThreshold || '0',
           currentLTV: userData.ltv || '0'
@@ -638,6 +644,65 @@ export class AaveService extends BaseProtocolService {
     
     // Call parent cleanup
     await super.cleanup();
+  }
+
+  /**
+   * Normalize the health factor to a human-readable format
+   * Aave returns health factor as a BigInt with 18 decimal places
+   */
+  private normalizeHealthFactor(healthFactor: string | bigint): string {
+    if (!healthFactor || healthFactor === '0') {
+      return '0';
+    }
+    
+    try {
+      // Check if the input is already in a decimal format
+      if (typeof healthFactor === 'string' && healthFactor.includes('.')) {
+        // Already normalized, just return it
+        return healthFactor;
+      }
+      
+      // Convert to BigInt if it's a string
+      let healthFactorValue: bigint;
+      if (typeof healthFactor === 'string') {
+        healthFactorValue = BigInt(healthFactor);
+      } else {
+        healthFactorValue = healthFactor;
+      }
+      
+      // If the value is small enough to be a regular number (not a raw contract value with 18 decimals)
+      if (healthFactorValue < BigInt(1000)) {
+        return healthFactorValue.toString();
+      }
+      
+      const divisor = BigInt(10 ** 18);
+      
+      // Get the whole number part
+      const wholePart = healthFactorValue / divisor;
+      
+      // Get the decimal part with proper precision
+      const decimalPart = healthFactorValue % divisor;
+      
+      // Format decimal part to have leading zeros if needed
+      let decimalStr = decimalPart.toString().padStart(18, '0');
+      
+      // Trim trailing zeros but keep two decimal places at minimum
+      decimalStr = decimalStr.substring(0, 2);
+      
+      // Combine whole and decimal parts
+      return `${wholePart}.${decimalStr}`;
+    } catch (error) {
+      console.error('Error normalizing health factor:', error);
+      
+      // If we can't normalize, try to return a reasonable value
+      if (typeof healthFactor === 'string') {
+        // If it's already a string, just return it
+        return healthFactor;
+      } else {
+        // Convert bigint to string as a fallback
+        return healthFactor.toString();
+      }
+    }
   }
 
   /**

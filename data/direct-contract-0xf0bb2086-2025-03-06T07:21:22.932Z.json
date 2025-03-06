@@ -1,0 +1,13 @@
+{
+  "address": "0xf0bb20865277abd641a307ece5ee04e79073416c",
+  "blockNumber": 21986322,
+  "timestamp": "2025-03-06T07:21:22.932Z",
+  "aavev3": {
+    "totalCollateral": "0.080410966759750522",
+    "totalDebt": "0.071593187067333681",
+    "availableBorrows": "0.003189012019234304",
+    "liquidationThreshold": 0.95,
+    "ltv": 0.93,
+    "healthFactor": "1067006813789662689"
+  }
+}
