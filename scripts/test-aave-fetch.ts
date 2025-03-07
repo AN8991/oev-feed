@@ -1,6 +1,9 @@
+// Import dotenv for environment variable loading
 import dotenv from 'dotenv';
+// Configure environment variables from .env file
 dotenv.config();
 
+// Import required libraries for Aave testing
 import { ethers } from 'ethers';
 import { AaveService } from '../src/services/protocols/aave';
 import { AaveConfigBuilder, AaveVersion } from '../src/services/protocols/aave/aave-config';
@@ -34,6 +37,28 @@ type TestResultEntry = {
   executionTime: number;
 };
 
+// Create test configuration with test addresses and performance thresholds
+function createTestConfig(): AaveServiceTestConfig {
+  return {
+    testAddresses: {
+      v2Active: ['0xf0bb20865277abd641a307ece5ee04e79073416c'],
+      v3Active: ['0xf0bb20865277abd641a307ece5ee04e79073416c']
+    },
+    expectedDataFields: [
+      'protocol', 
+      'network', 
+      'collateral', 
+      'debt', 
+      'healthFactor'
+    ],
+    performanceThresholds: {
+      maxResponseTimeMs: 5000,  // 5 seconds max response time
+      minPositionsExpected: 1   // At least one position expected for active addresses
+    }
+  };
+}
+
+// Main class for testing Aave service functionality
 class AaveServiceTester {
   private config: AaveServiceTestConfig;
   private testResults: Record<AaveVersion, TestResultEntry>;
@@ -43,6 +68,7 @@ class AaveServiceTester {
     this.testResults = this.initializeTestResults();
   }
 
+  // Initialize test results for each Aave version
   private initializeTestResults(): Record<AaveVersion, TestResultEntry> {
     return Object.values(AaveVersion).reduce((acc, version) => {
       if (typeof version === 'string') {
@@ -58,6 +84,7 @@ class AaveServiceTester {
     }, {} as Record<AaveVersion, TestResultEntry>);
   }
 
+  // Create provider URL from environment variables
   private createProviderUrl(): string {
     if (ENV.ALCHEMY_API_KEY) {
       return `https://eth-mainnet.g.alchemy.com/v2/${ENV.ALCHEMY_API_KEY}`;
@@ -68,6 +95,7 @@ class AaveServiceTester {
     }
   }
 
+  // Create ethers provider for blockchain interaction
   private createProvider(): ethers.Provider {
     const providerUrl = this.createProviderUrl();
     return new ethers.JsonRpcProvider(providerUrl, 'mainnet');
@@ -132,6 +160,7 @@ class AaveServiceTester {
     return true;
   }
 
+  // Test Aave service initialization for a specific version
   private async testServiceInitialization(version: AaveVersion): Promise<boolean> {
     // Reset results for this version before testing
     this.testResults[version] = {
@@ -145,6 +174,7 @@ class AaveServiceTester {
     const startTime = Date.now();
     
     try {
+      // Create Aave configuration with appropriate network and version
       const aaveConfig = new AaveConfigBuilder()
         .withNetwork(Network.ETHEREUM)
         .withVersion(version)
@@ -166,6 +196,7 @@ class AaveServiceTester {
       const config = aaveConfig.build();
       const aaveService = new AaveService(config);
       
+      // Initialize the service
       await aaveService.initialize();
       
       this.testResults[version].initialized = true;
@@ -173,6 +204,7 @@ class AaveServiceTester {
       
       return true;
     } catch (error) {
+      // Handle initialization errors
       const errorMessage = error instanceof Error ? error.message : String(error);
       this.testResults[version].errors.push(`Initialization Error: ${errorMessage}`);
       
@@ -185,6 +217,7 @@ class AaveServiceTester {
     }
   }
 
+  // Test position retrieval for a specific Aave version
   private async testPositionRetrieval(version: AaveVersion): Promise<boolean> {
     const startTime = Date.now();
     const addressesToTest = version === AaveVersion.V3 
@@ -195,6 +228,7 @@ class AaveServiceTester {
 
     for (const userAddress of addressesToTest) {
       try {
+        // Set up query parameters for position retrieval
         const queryParams: ProtocolQueryParams = {
           userAddress,
           protocol: Protocol.AAVE,
@@ -209,6 +243,7 @@ class AaveServiceTester {
         // Log the provider information
         console.log(`Provider URL: https://eth-mainnet.g.alchemy.com/v2/***`);
 
+        // Create Aave configuration with appropriate network and version
         const aaveConfig = new AaveConfigBuilder()
           .withNetwork(Network.ETHEREUM)
           .withVersion(version)
@@ -234,8 +269,10 @@ class AaveServiceTester {
           oracleAddress: config.oracleAddress
         });
 
+        // Create Aave service instance
         const aaveService = new AaveService(config);
         
+        // Initialize the service
         await aaveService.initialize();
 
         console.log(`Fetching positions for ${userAddress} on Aave ${version}`);
@@ -271,6 +308,7 @@ class AaveServiceTester {
           // Save the results to a JSON file for reference
           await this.saveResultsToJson(userAddress, accountData);
           
+          // Fetch user positions using Aave service
           const positions = await aaveService.fetchUserPositions(queryParams);
           
           console.log(`Total positions found: ${positions.length}`);
@@ -279,6 +317,7 @@ class AaveServiceTester {
             console.log('First position details:', JSON.stringify(positions[0], null, 2));
           }
           
+          // Validate positions
           const validPositions = positions.filter(this.validatePosition);
           
           console.log(`Valid positions: ${validPositions.length}`);
@@ -301,7 +340,7 @@ class AaveServiceTester {
             });
           });
 
-          // Format position data for better readability
+          // Helper function to format position data for better readability
           const formatPositionData = (position: UserProtocolPosition) => {
             // Format numbers to have appropriate decimal places
             const formatNumber = (value: string | null | undefined, decimals = 6) => {
@@ -361,7 +400,7 @@ class AaveServiceTester {
             return summary;
           };
 
-          // Save position data to a JSON file
+          // Helper function to save positions to a JSON file
           const savePositionsToFile = (positions: UserProtocolPosition[], version: AaveVersion) => {
             const dataDir = path.join(__dirname, '..', 'data');
             
@@ -393,6 +432,7 @@ class AaveServiceTester {
           savePositionsToFile(validPositions, version);
 
         } catch (directError) {
+          // Handle errors from direct contract calls
           console.error(`Direct contract call error:`, 
             directError instanceof Error ? directError.message : String(directError)
           );
@@ -402,6 +442,7 @@ class AaveServiceTester {
         }
         
       } catch (error) {
+        // Handle general errors during position retrieval
         const errorMessage = error instanceof Error ? error.message : String(error);
         console.error(`Error retrieving positions for ${userAddress}:`, errorMessage);
         
@@ -420,9 +461,7 @@ class AaveServiceTester {
     return overallSuccess;
   }
 
-  /**
-   * Store the results as JSON in the data folder
-   */
+  // Store the raw contract call results as JSON in the data folder
   private async saveResultsToJson(userAddress: string, accountData: any): Promise<void> {
     try {
       // Create a timestamp for the filename
@@ -481,15 +520,13 @@ class AaveServiceTester {
     }
   }
 
-  /**
-   * Run the comprehensive test
-   */
+  // Run comprehensive tests for Aave service
   async runComprehensiveTest(): Promise<void> {
     console.log('\nStarting Comprehensive Aave Service Test\n');
 
     console.log('=== Testing Aave V3 ===');
     
-    // Only test V3 for now
+    // Only test V3 for now since that's our focus
     const v3Initialized = await this.testServiceInitialization(AaveVersion.V3);
     const v3PositionTest = await this.testPositionRetrieval(AaveVersion.V3);
     
@@ -498,48 +535,36 @@ class AaveServiceTester {
     this.generateTestReport();
   }
 
+  // Run all tests and generate a report
   async run(): Promise<boolean> {
     console.log('\nStarting Comprehensive Aave Service Test\n');
     
     // Start the timer
     const startTime = Date.now();
     
-    // Initialize results
-    const results = {
-      v2: {
-        initialized: false,
-        positionsFetched: false,
-        validPositions: 0,
-        executionTime: 0,
-        errors: [] as string[]
-      },
-      v3: {
-        initialized: false,
-        positionsFetched: false,
-        validPositions: 0,
-        executionTime: 0,
-        errors: [] as string[]
-      }
-    };
-    
-    // Test Aave V3
+    // Test Aave V3 (our current focus)
     console.log('=== Testing Aave V3 ===');
-    const v3StartTime = Date.now();
+    
+    // Log API key retrieval for debugging
+    if (ENV.ALCHEMY_API_KEY) {
+      console.log(`Retrieving API key for ALCHEMY_API_KEY: ${ENV.ALCHEMY_API_KEY.substring(0, 10)}...`);
+      console.log('Environment variables:', process.env);
+    } else {
+      console.log('No Alchemy API key found');
+    }
+    
     try {
       const v3Initialized = await this.testServiceInitialization(AaveVersion.V3);
-      results.v3.initialized = v3Initialized;
+      this.testResults[AaveVersion.V3].initialized = v3Initialized;
       
       if (v3Initialized) {
         await this.testPositionRetrieval(AaveVersion.V3);
-        results.v3.positionsFetched = this.testResults[AaveVersion.V3].positionsFetched;
-        results.v3.validPositions = this.testResults[AaveVersion.V3].validPositions;
       } else {
-        results.v3.errors.push('Failed to initialize Aave V3 service');
+        this.testResults[AaveVersion.V3].errors.push('Failed to initialize Aave V3 service');
       }
     } catch (error) {
-      results.v3.errors.push(`Error during Aave V3 test: ${error instanceof Error ? error.message : String(error)}`);
+      this.testResults[AaveVersion.V3].errors.push(`Error during Aave V3 test: ${error instanceof Error ? error.message : String(error)}`);
     }
-    results.v3.executionTime = Date.now() - v3StartTime;
     
     // Calculate overall success
     const success = this.testResults[AaveVersion.V3].validPositions > 0;
@@ -547,24 +572,22 @@ class AaveServiceTester {
     
     // Print test report
     console.log('\n=== Test Report ===\n');
+    
     console.log('Aave V2:');
-    console.log(`- Initialized: ${results.v2.initialized}`);
-    console.log(`- Positions Fetched: ${results.v2.positionsFetched}`);
-    console.log(`- Valid Positions: ${results.v2.validPositions}`);
-    console.log(`- Execution Time: ${results.v2.executionTime}ms`);
-    if (results.v2.errors.length > 0) {
-      console.log('- Errors:');
-      results.v2.errors.forEach(err => console.log(`  * ${err}`));
-    }
+    console.log(`- Initialized: false`);
+    console.log(`- Positions Fetched: false`);
+    console.log(`- Valid Positions: 0`);
+    console.log(`- Execution Time: 0ms`);
     
     console.log('\nAave V3:');
-    console.log(`- Initialized: ${results.v3.initialized}`);
-    console.log(`- Positions Fetched: ${results.v3.positionsFetched}`);
-    console.log(`- Valid Positions: ${results.v3.validPositions}`);
-    console.log(`- Execution Time: ${results.v3.executionTime}ms`);
-    if (results.v3.errors.length > 0) {
+    console.log(`- Initialized: ${this.testResults[AaveVersion.V3].initialized}`);
+    console.log(`- Positions Fetched: ${this.testResults[AaveVersion.V3].positionsFetched}`);
+    console.log(`- Valid Positions: ${this.testResults[AaveVersion.V3].validPositions}`);
+    console.log(`- Execution Time: ${this.testResults[AaveVersion.V3].executionTime}ms`);
+    
+    if (this.testResults[AaveVersion.V3].errors.length > 0) {
       console.log('- Errors:');
-      results.v3.errors.forEach(err => console.log(`  * ${err}`));
+      this.testResults[AaveVersion.V3].errors.forEach(err => console.log(`  * ${err}`));
     }
     
     // Print summary recommendations
@@ -588,13 +611,14 @@ class AaveServiceTester {
     return success;
   }
 
+  // Generate a test report with results from all tested versions
   private generateTestReport() {
     console.log('\n=== Test Report ===');
     
     // Safe iteration over test results
     (Object.entries(this.testResults) as Array<[AaveVersion, TestResultEntry]>)
       .forEach(([version, result]) => {
-        console.log(`\nAave ${version.toUpperCase()}:`);
+        console.log(`\nAave ${version}:`);
         console.log(`- Initialized: ${result.initialized}`);
         console.log(`- Positions Fetched: ${result.positionsFetched}`);
         console.log(`- Valid Positions: ${result.validPositions}`);
@@ -608,28 +632,7 @@ class AaveServiceTester {
   }
 }
 
-// Test Configuration
-function createTestConfig(): AaveServiceTestConfig {
-  return {
-    testAddresses: {
-      v2Active: ['0xf0bb20865277abd641a307ece5ee04e79073416c'],
-      v3Active: ['0xf0bb20865277abd641a307ece5ee04e79073416c']
-    },
-    expectedDataFields: [
-      'protocol', 
-      'network', 
-      'collateral', 
-      'debt', 
-      'healthFactor'
-    ],
-    performanceThresholds: {
-      maxResponseTimeMs: 5000,  // 5 seconds max response time
-      minPositionsExpected: 1   // At least one position expected for active addresses
-    }
-  };
-}
-
-// Main Execution
+// Main function to execute the tests
 async function main() {
   try {
     const tester = new AaveServiceTester();
@@ -640,4 +643,5 @@ async function main() {
   }
 }
 
+// Execute the main function
 main();

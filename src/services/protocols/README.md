@@ -17,6 +17,7 @@ This directory contains services for interacting with various DeFi protocols. Ea
   - `abi.ts` - Aave contract ABIs
   - `queries.ts` - GraphQL queries for Aave subgraph
   - `index.ts` - Exports all Aave components
+- `template/` - Template for adding new protocol implementations
 - `sync.ts` - Service for synchronizing protocol positions
 
 ## Architecture
@@ -51,7 +52,8 @@ Each protocol should implement a configuration builder extending the `BaseConfig
 ```typescript
 export class AaveConfigBuilder extends BaseConfigBuilder<AaveConfig> {
   withPoolAddress(address: string): this {
-    this.config.poolAddress = address;
+    // Always normalize addresses using ethers.getAddress()
+    this.config.poolAddress = ethers.getAddress(address);
     return this;
   }
   
@@ -63,12 +65,13 @@ export class AaveConfigBuilder extends BaseConfigBuilder<AaveConfig> {
 
 To add a new protocol, follow these steps:
 
-1. Create a new directory for the protocol (e.g., `compound/`)
+1. Copy the `template/` directory and rename it for your protocol (e.g., `compound/`)
 2. Implement the protocol-specific service extending `BaseProtocolService`
 3. Create a configuration builder extending `BaseConfigBuilder`
 4. Implement a factory extending `BaseProtocolServiceFactory`
 5. Add contract ABIs and GraphQL queries if needed
 6. Create an index.ts file to export all components
+7. Create test scripts in the `scripts/` directory to validate your implementation
 
 ### Example Implementation
 
@@ -76,11 +79,22 @@ To add a new protocol, follow these steps:
 // compound-service.ts
 export class CompoundService extends BaseProtocolService {
   // Protocol-specific implementation
+  
+  // Ensure proper address validation
+  private normalizeAddress(address: string): string {
+    return ethers.getAddress(address);
+  }
 }
 
 // compound-config.ts
 export class CompoundConfigBuilder extends BaseConfigBuilder<CompoundConfig> {
   // Protocol-specific configuration
+  
+  // Always normalize addresses in configuration methods
+  withComptrollerAddress(address: string): this {
+    this.config.comptrollerAddress = ethers.getAddress(address);
+    return this;
+  }
 }
 
 // compound-factory.ts
@@ -95,9 +109,10 @@ export class CompoundServiceFactory extends BaseProtocolServiceFactory<CompoundS
 The `ProtocolPositionSyncService` is responsible for synchronizing user positions across different lending protocols with our database.
 
 ### Key Features
-- Supports multiple protocols: Silo, Aave, Lendle, Orbit, Ironclad
+- Supports multiple protocols with a focus on Aave V3
 - Can sync positions for a specific user or all users
 - Stores positions with timestamp for historical tracking
+- Properly handles address validation and checksumming
 
 ### Usage
 
@@ -110,7 +125,9 @@ await syncService.syncAllProtocolPositions(Network.ETHEREUM);
 #### Sync Positions for a Specific User
 ```typescript
 const syncService = new ProtocolPositionSyncService();
-await syncService.syncSiloPositions(Network.ETHEREUM, '0x1234...');
+// Always normalize user addresses before passing to sync methods
+const normalizedAddress = ethers.getAddress('0x1234...');
+await syncService.syncAavePositions(Network.ETHEREUM, normalizedAddress);
 ```
 
 ### Synchronization Process
@@ -119,17 +136,20 @@ await syncService.syncSiloPositions(Network.ETHEREUM, '0x1234...');
 3. Upsert positions in the `UserPosition` table
 4. Handle errors gracefully with logging
 
-### Limitations
-- Placeholder methods for fetching all users need to be implemented
-- Currently supports only Ethereum network
-- Requires proper contract ABIs and addresses
+### Important Implementation Notes
+- Always use `ethers.getAddress()` to normalize Ethereum addresses before using them in contract interactions
+- For Aave V3, the `getUserAccountData` method returns data as an array (tuple) rather than an object with named properties when using ethers.js v6+
+- Use official address book packages like `@bgd-labs/aave-address-book` for contract addresses when available
+- Add comprehensive logging for debugging and error tracking
 
-### Recommended Setup
-- Run as a scheduled job (e.g., daily or hourly)
-- Can be triggered manually or via CLI
-- Ensure proper error handling and monitoring
+### Testing Protocol Implementations
+- Create test scripts in the `scripts/` directory to validate your implementation
+- Use the test scripts to verify on-chain data fetching and formatting
+- Add test scripts to package.json for easy execution
+- Save test results to JSON files for easier debugging and analysis
 
 ### Future Improvements
 - Add support for more networks
 - Implement more robust user discovery methods
 - Add caching and rate limiting
+- Enhance error handling and retry mechanisms

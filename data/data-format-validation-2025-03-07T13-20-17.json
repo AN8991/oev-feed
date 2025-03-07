@@ -1,5 +1,22 @@
-[
-  {
+{
+  "validationResults": [
+    {
+      "position": "Sample Position",
+      "isValid": true,
+      "errors": []
+    },
+    {
+      "file": "aave-v3-positions-2025-03-07T12-54-33.json",
+      "positions": [
+        {
+          "index": 0,
+          "isValid": true,
+          "errors": []
+        }
+      ]
+    }
+  ],
+  "formattingExample": {
     "protocol": "AAVE",
     "network": "ethereum",
     "version": "v3",
@@ -7,7 +24,7 @@
     "collateral": "0.076367 ETH",
     "debt": "0.067992 ETH",
     "healthFactor": "1.0670",
-    "fetchedTimestamp": "2025-03-07T12:54:29.000Z",
+    "fetchedTimestamp": "2025-03-07T13:20:17.000Z",
     "borrowedAssets": [
       {
         "symbol": "WETH",
@@ -34,5 +51,9 @@
         "healthFactor": "1067012152039174497"
       }
     }
+  },
+  "summary": {
+    "passed": 2,
+    "failed": 0
   }
-]
+}

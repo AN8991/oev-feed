@@ -1,0 +1,38 @@
+[
+  {
+    "protocol": "AAVE",
+    "network": "ethereum",
+    "version": "v3",
+    "userAddress": "0xf0bb20865277aBd641a307eCe5Ee04E79073416C",
+    "collateral": "0.076821 ETH",
+    "debt": "0.068397 ETH",
+    "healthFactor": "1.0670",
+    "fetchedTimestamp": "2025-03-07T13:20:37.000Z",
+    "borrowedAssets": [
+      {
+        "symbol": "WETH",
+        "address": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+        "amount": "313207.09446435",
+        "valueETH": "0.000000"
+      }
+    ],
+    "suppliedAssets": [
+      {
+        "symbol": "weETH",
+        "address": "0xCd5fE23C85820F7B72D0926FC9b05b43E359b7ee",
+        "amount": "331295.82922117"
+      }
+    ],
+    "liquidationRisk": {
+      "threshold": "95.00%",
+      "currentLTV": "93.00%"
+    },
+    "details": {
+      "onChainData": {
+        "totalCollateral": "76820957675958813",
+        "totalDebt": "68396598589814755",
+        "healthFactor": "1067010806046554462"
+      }
+    }
+  }
+]

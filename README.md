@@ -6,16 +6,8 @@ A Next.js application that aggregates and monitors user lending and borrowing da
 cd /Users/auro/Documents/Projects/oev-feed && git reset --hard origin/main
 cd /Users/auro/Documents/Projects/oev-feed && git clean -fd
 
-
-## Running Static Tests
-npx ts-node scripts/check-aave-addresses.ts
-npx ts-node scripts/test-aave-fetch.ts
-npx ts-node scripts/test-aave-simple.ts
-npx ts-node scripts/verify-contracts.ts
-
 ## Supported Protocols at present
 - AAVE Protocol
-
 
 ## Future supported Protocols
 - Ironclad Finance
@@ -72,62 +64,3 @@ npm run dev
 
 Visit [http://localhost:3000](http://localhost:3000) to see the application.
 ```
-
-# Test Scripts Run (Only for Backend testing)
-npx ts-node scripts/test-aave-fetch.ts
-
-## Project Structure
-
-```
-src/
-├── __tests__/                  # Test files
-│   ├── __mocks__/             # Mock files for testing
-│   └── services/              # Service tests
-├── app/                       # Next.js app directory
-│   ├── globals.css           # Global styles
-│   ├── layout.tsx            # Root layout component
-│   └── page.tsx              # Main page component
-├── components/               # React components
-│   ├── DateRangePicker.tsx   # Date range selection component
-│   ├── Dropdown.tsx          # Dropdown menu component
-│   ├── ExportButton.tsx      # Data export component
-│   ├── LastUpdatedPicker.tsx # Last updated filter
-│   ├── Notifications.tsx     # Notifications component
-│   ├── PositionDisplay.tsx   # Position display component
-│   └── TransactionHistory.tsx # Transaction history component
-├── config/                   # Configuration files
-│   ├── contracts.ts          # Contract addresses and ABIs
-│   ├── env.ts               # Environment configuration
-│   ├── providers/           # Blockchain provider configurations
-│   └── subgraphs.ts         # Subgraph endpoints
-├── errors/                   # Custom error definitions
-├── services/                # Core services
-│   ├── cache/              # Caching service
-│   ├── database.ts         # Database service
-│   ├── export/            # Data export service
-│   ├── factory.ts         # Service factory
-│   ├── history/          # Historical data service
-│   ├── notifications/    # Notification service
-│   ├── protocols/        # Protocol-specific services
-│   │   ├── aave/        # Aave protocol implementation
-│   │   ├── base.ts      # Base protocol service
-│   │   └── sync.ts      # Protocol sync service
-│   └── realtime/        # Real-time update service
-├── types/                # TypeScript type definitions
-└── utils/               # Utility functions
-    ├── contractVerification.ts
-    ├── errors.ts
-    ├── logger.ts
-    ├── rateLimit.ts
-    └── retry.ts
-```
-
-The project follows a modular architecture with clear separation of concerns:
-
-- `__tests__/`: Contains all test files and mocks
-- `app/`: Next.js application files and pages
-- `components/`: Reusable React components
-- `config/`: Configuration files for environment, contracts, and providers
-- `services/`: Core business logic and protocol implementations
-- `types/`: TypeScript type definitions
-- `utils/`: Helper functions and utilities
