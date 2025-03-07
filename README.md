@@ -2,6 +2,17 @@
 
 A Next.js application that aggregates and monitors user lending and borrowing data from various DeFi protocols.
 
+## Reset to last push & removing untracked changes
+cd /Users/auro/Documents/Projects/oev-feed && git reset --hard origin/main
+cd /Users/auro/Documents/Projects/oev-feed && git clean -fd
+
+
+## Running Static Tests
+npx ts-node scripts/check-aave-addresses.ts
+npx ts-node scripts/test-aave-fetch.ts
+npx ts-node scripts/test-aave-simple.ts
+npx ts-node scripts/verify-contracts.ts
+
 ## Supported Protocols at present
 - AAVE Protocol
 

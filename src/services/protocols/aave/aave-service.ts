@@ -1,28 +1,18 @@
 import { ethers } from 'ethers';
-import { 
-  Protocol, 
-  UserProtocolPosition, 
-  ProtocolQueryParams, 
-  DataSourceType 
-} from '../../../types/protocols';
+import { Network } from '../../../types/networks';
+import { DataSourceType, Protocol, ProtocolQueryParams, UserProtocolPosition } from '../../../types/protocols';
 import { log } from '../../../utils/logger';
 import { 
   BaseProtocolService, 
   ProtocolConfig 
 } from '../common/base-protocol';
-import { 
-  AAVE_V3_POOL_ABI, 
-  AAVE_V3_POOL_DATA_PROVIDER_ABI, 
-  AAVE_V3_ORACLE_ABI,
-  AAVE_V2_LENDING_POOL_ABI,
-  AAVE_V2_PROTOCOL_DATA_PROVIDER_ABI,
-  AAVE_V2_PRICE_ORACLE_ABI
-} from './abi';
-import { 
-  GET_USER_POSITIONS, 
-  GET_PROTOCOL_POSITIONS 
-} from './queries';
+import { DataSourceFallbackService } from '../common/data-source-fallback';
 import { AaveConfig, AaveVersion } from './aave-config';
+import { AaveAbiProvider } from './aave-abi-provider';
+import { AaveAddressProvider } from './aave-address-provider';
+import { GET_USER_POSITIONS, GET_PROTOCOL_POSITIONS } from './queries';
+
+// Use log directly instead of creating a child logger
 
 /**
  * Service for interacting with Aave protocol
@@ -62,24 +52,41 @@ export class AaveService extends BaseProtocolService {
     try {
       // Get provider
       const provider = await this.getProvider();
+      
+      // For V2, we might need to resolve addresses dynamically if they're empty
+      if (this.version === AaveVersion.V2) {
+        await this.resolveAddressesIfNeeded(provider);
+      }
+
+      // Get ABIs from provider
+      const poolAbi = AaveAbiProvider.getPoolAbi(this.version);
+      const dataProviderAbi = AaveAbiProvider.getDataProviderAbi(this.version);
+      const oracleAbi = AaveAbiProvider.getOracleAbi(this.version);
+
+      log.debug('Initializing Aave contracts with official ABIs', {
+        version: this.version,
+        poolAddress: this.poolAddress,
+        dataProviderAddress: this.dataProviderAddress,
+        oracleAddress: this.oracleAddress
+      });
 
       // Initialize contracts with the addresses as-is, without trying to normalize them
       // This avoids checksum validation errors
       this.poolContract = new ethers.Contract(
         this.poolAddress, 
-        this.version === AaveVersion.V3 ? AAVE_V3_POOL_ABI : AAVE_V2_LENDING_POOL_ABI, 
+        poolAbi, 
         provider
       );
       
       this.dataProviderContract = new ethers.Contract(
         this.dataProviderAddress, 
-        this.version === AaveVersion.V3 ? AAVE_V3_POOL_DATA_PROVIDER_ABI : AAVE_V2_PROTOCOL_DATA_PROVIDER_ABI, 
+        dataProviderAbi, 
         provider
       );
       
       this.oracleContract = new ethers.Contract(
         this.oracleAddress, 
-        this.version === AaveVersion.V3 ? AAVE_V3_ORACLE_ABI : AAVE_V2_PRICE_ORACLE_ABI, 
+        oracleAbi, 
         provider
       );
 
@@ -94,8 +101,64 @@ export class AaveService extends BaseProtocolService {
       });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      log.error('Failed to initialize AaveService', { error: errorMessage });
-      throw error;
+      log.error('Failed to initialize AaveService', { 
+        error: errorMessage,
+        network: this.network,
+        version: this.version
+      });
+      throw new Error(`Failed to initialize AaveService: ${errorMessage}`);
+    }
+  }
+  
+  /**
+   * Resolve addresses dynamically if needed
+   * This is primarily for V2 where addresses might not be available statically
+   * @param provider The ethers provider
+   */
+  private async resolveAddressesIfNeeded(provider: ethers.Provider): Promise<void> {
+    // Check if any addresses are empty and need to be resolved
+    if (!this.poolAddress || !this.dataProviderAddress || !this.oracleAddress) {
+      log.info('Some Aave addresses are empty, resolving dynamically', {
+        network: this.network,
+        version: this.version
+      });
+      
+      try {
+        // Resolve addresses dynamically
+        const resolvedAddresses = await AaveAddressProvider.resolveV2Addresses(
+          provider,
+          this.network
+        );
+        
+        // Update addresses if they were empty
+        if (!this.poolAddress) {
+          this.poolAddress = resolvedAddresses.poolAddress;
+        }
+        
+        if (!this.dataProviderAddress) {
+          this.dataProviderAddress = resolvedAddresses.dataProviderAddress;
+        }
+        
+        if (!this.oracleAddress) {
+          this.oracleAddress = resolvedAddresses.oracleAddress;
+        }
+        
+        log.info('Successfully resolved Aave addresses dynamically', {
+          network: this.network,
+          version: this.version,
+          poolAddress: this.poolAddress,
+          dataProviderAddress: this.dataProviderAddress,
+          oracleAddress: this.oracleAddress
+        });
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        log.error('Failed to resolve Aave addresses dynamically', {
+          error: errorMessage,
+          network: this.network,
+          version: this.version
+        });
+        throw new Error(`Failed to resolve Aave addresses: ${errorMessage}`);
+      }
     }
   }
 

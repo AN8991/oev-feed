@@ -245,8 +245,8 @@ class AaveServiceTester {
           const poolContract = new ethers.Contract(
             config.poolAddress,
             version === AaveVersion.V3 
-              ? require('../src/services/protocols/aave/abi').AAVE_V3_POOL_ABI 
-              : require('../src/services/protocols/aave/abi').AAVE_V2_LENDING_POOL_ABI,
+              ? require('../src/services/protocols/aave/aave-abi-provider').AAVE_V3_POOL_ABI 
+              : require('../src/services/protocols/aave/aave-abi-provider').AAVE_V2_LENDING_POOL_ABI,
             provider
           );
           

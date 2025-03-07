@@ -1,9 +1,9 @@
 import { ethers } from 'ethers';
-import { Protocol } from '@/types/protocols';
+import { Protocol, UserProtocolPosition } from '@/types/protocols';
 import { Network } from '@/types/networks';
 import { ServiceFactory } from '@/services';
 import { CONTRACT_ADDRESSES } from '@/config/contracts';
-import { AAVE_POOL_ABI } from '@/services/protocols/aave/abi';
+import { AAVE_POOL_ABI } from '@/services/protocols/aave/aave-abi-provider';
 import { log } from '@/utils/logger';
 
 // Structured representation of blockchain event data
@@ -282,14 +282,14 @@ export class RealtimeService {
 
           if (events.length > 0) {
             try {
-              const service = ServiceFactory.getService(protocol as Protocol, network as Network);
+              const service = await ServiceFactory.getService(protocol as Protocol, network as Network);
               const positions = await service.getPositions({
-                protocol: protocol as string,
+                protocol: protocol as Protocol,
                 network: network as Network,
                 fromTimestamp: block.timestamp,
                 toTimestamp: block.timestamp
               });
-              const positionsRecord = positions.reduce((acc, pos) => {
+              const positionsRecord = positions.reduce((acc: Record<string, unknown>, pos: UserProtocolPosition) => {
                 const key = `${pos.protocol}_${pos.network}_${pos.userAddress}`;
                 acc[key] = pos;
                 return acc;
@@ -363,14 +363,14 @@ export class RealtimeService {
             const subscribers = this.subscribers.get(subscriptionKey);
             if (subscribers) {
               try {
-                const service = ServiceFactory.getService(protocol, network);
+                const service = await ServiceFactory.getService(protocol, network);
                 const positions = await service.getPositions({
-                  protocol: protocol as string,
+                  protocol: protocol as Protocol,
                   network: network as Network,
                   fromTimestamp: Date.now(),
                   toTimestamp: Date.now()
                 });
-                const positionsRecord = positions.reduce((acc, pos) => {
+                const positionsRecord = positions.reduce((acc: Record<string, unknown>, pos: UserProtocolPosition) => {
                   const key = `${pos.protocol}_${pos.network}_${pos.userAddress}`;
                   acc[key] = pos;
                   return acc;
