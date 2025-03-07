@@ -46,6 +46,15 @@ export interface UserProtocolPosition {
     symbol: string;
     amount: string;
     valueETH: string;
+    address?: string;  // Optional asset address
+  }[];
+  
+  // Supplied assets
+  suppliedAssets: {
+    symbol: string;
+    address: string;
+    amount: string;
+    valueETH?: string;
   }[];
   
   // Timestamp information

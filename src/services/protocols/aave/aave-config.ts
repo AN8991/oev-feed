@@ -1,6 +1,9 @@
 import { Network } from '../../../types/networks';
 import { Protocol } from '../../../types/protocols';
 import { ExtendedProtocolConfig, BaseConfigBuilder } from '../common/protocol-config';
+import { ethers } from 'ethers';
+import { log } from '../../../utils/logger';
+import { AaveV3Ethereum, AaveV2Ethereum } from '@bgd-labs/aave-address-book';
 
 /**
  * Aave protocol version
@@ -30,6 +33,10 @@ export class AaveConfigBuilder extends BaseConfigBuilder<AaveConfig> {
     this.withProtocol(Protocol.AAVE);
     // Default to V3
     this.config.version = AaveVersion.V3;
+    // Initialize with default addresses from Aave Address Book for V3
+    this.config.poolAddress = AaveV3Ethereum.POOL;
+    this.config.dataProviderAddress = AaveV3Ethereum.AAVE_PROTOCOL_DATA_PROVIDER;
+    this.config.oracleAddress = AaveV3Ethereum.ORACLE;
   }
 
   /**
@@ -37,7 +44,8 @@ export class AaveConfigBuilder extends BaseConfigBuilder<AaveConfig> {
    * @param address The pool contract address
    */
   withPoolAddress(address: string): this {
-    this.config.poolAddress = address;
+    // Normalize address to ensure proper checksum
+    this.config.poolAddress = address ? ethers.getAddress(address) : '';
     return this;
   }
 
@@ -46,7 +54,8 @@ export class AaveConfigBuilder extends BaseConfigBuilder<AaveConfig> {
    * @param address The data provider contract address
    */
   withDataProviderAddress(address: string): this {
-    this.config.dataProviderAddress = address;
+    // Normalize address to ensure proper checksum
+    this.config.dataProviderAddress = address ? ethers.getAddress(address) : '';
     return this;
   }
 
@@ -55,7 +64,8 @@ export class AaveConfigBuilder extends BaseConfigBuilder<AaveConfig> {
    * @param address The oracle contract address
    */
   withOracleAddress(address: string): this {
-    this.config.oracleAddress = address;
+    // Normalize address to ensure proper checksum
+    this.config.oracleAddress = address ? ethers.getAddress(address) : '';
     return this;
   }
 

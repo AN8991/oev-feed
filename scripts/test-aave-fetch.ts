@@ -10,6 +10,7 @@ import { ENV } from '../src/config/env';
 import { log } from '../src/utils/logger';
 import fs from 'fs';
 import path from 'path';
+import { AaveV3Ethereum, AaveV2Ethereum } from '@bgd-labs/aave-address-book';
 
 // Configuration for Aave Service Testing
 interface AaveServiceTestConfig {
@@ -152,14 +153,14 @@ class AaveServiceTester {
       // Set version-specific contract addresses
       if (version === AaveVersion.V3) {
         aaveConfig
-          .withPoolAddress('0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2')
-          .withDataProviderAddress('0x7B4EB56E7CD4b454BA8ff71E4518426B2FE71A3a')
-          .withOracleAddress('0x54586BE62E3c3580c7B6BE5dAB9A14dF98A3Dc9a');
+          .withPoolAddress(AaveV3Ethereum.POOL)
+          .withDataProviderAddress(AaveV3Ethereum.AAVE_PROTOCOL_DATA_PROVIDER)
+          .withOracleAddress(AaveV3Ethereum.ORACLE);
       } else {
         aaveConfig
-          .withPoolAddress('0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7A9')
-          .withDataProviderAddress('0x057835Ad21a177dbdd3090bB1CAE03EaCF78Fc6d')
-          .withOracleAddress('0xA50ba011c48153De246E5192C8f9258A2ba79Ca9');
+          .withPoolAddress(AaveV2Ethereum.POOL)
+          .withDataProviderAddress(AaveV2Ethereum.POOL_ADDRESSES_PROVIDER)
+          .withOracleAddress(AaveV2Ethereum.ORACLE);
       }
 
       const config = aaveConfig.build();
@@ -216,14 +217,14 @@ class AaveServiceTester {
         // Set version-specific contract addresses
         if (version === AaveVersion.V3) {
           aaveConfig
-            .withPoolAddress('0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2')
-            .withDataProviderAddress('0x7B4EB56E7CD4b454BA8ff71E4518426B2FE71A3a')
-            .withOracleAddress('0x54586BE62E3c3580c7B6BE5dAB9A14dF98A3Dc9a');
+            .withPoolAddress(AaveV3Ethereum.POOL)
+            .withDataProviderAddress(AaveV3Ethereum.AAVE_PROTOCOL_DATA_PROVIDER)
+            .withOracleAddress(AaveV3Ethereum.ORACLE);
         } else {
           aaveConfig
-            .withPoolAddress('0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7A9')
-            .withDataProviderAddress('0x057835Ad21a177dbdd3090bB1CAE03EaCF78Fc6d')
-            .withOracleAddress('0xA50ba011c48153De246E5192C8f9258A2ba79Ca9');
+            .withPoolAddress(AaveV2Ethereum.POOL)
+            .withDataProviderAddress(AaveV2Ethereum.POOL_ADDRESSES_PROVIDER)
+            .withOracleAddress(AaveV2Ethereum.ORACLE);
         }
 
         const config = aaveConfig.build();
@@ -300,6 +301,97 @@ class AaveServiceTester {
             });
           });
 
+          // Format position data for better readability
+          const formatPositionData = (position: UserProtocolPosition) => {
+            // Format numbers to have appropriate decimal places
+            const formatNumber = (value: string | null | undefined, decimals = 6) => {
+              if (!value) return '0.000000';
+              const num = parseFloat(value);
+              return num.toFixed(decimals);
+            };
+
+            // Format health factor with 4 decimal places
+            const healthFactor = formatNumber(position.healthFactor, 4);
+            
+            // Format collateral and debt with 6 decimal places
+            const collateral = formatNumber(position.collateral);
+            const debt = formatNumber(position.debt);
+            
+            // Format borrowed assets
+            const borrowedAssets = position.borrowedAssets.map(asset => ({
+              symbol: asset.symbol,
+              address: asset.address,
+              amount: formatNumber(asset.amount, 8),
+              valueETH: asset.valueETH ? formatNumber(asset.valueETH) : '0.000000'
+            }));
+            
+            // Format supplied assets
+            const suppliedAssets = position.suppliedAssets.map(asset => ({
+              symbol: asset.symbol,
+              address: asset.address,
+              amount: formatNumber(asset.amount, 8)
+            }));
+            
+            // Format liquidation risk
+            const liquidationRisk = {
+              threshold: position.liquidationRisk?.threshold 
+                ? (parseInt(position.liquidationRisk.threshold) / 100).toFixed(2) + '%'
+                : 'N/A',
+              currentLTV: position.liquidationRisk?.currentLTV
+                ? (parseInt(position.liquidationRisk.currentLTV) / 100).toFixed(2) + '%'
+                : 'N/A'
+            };
+            
+            // Create a summary for the position
+            const summary = {
+              protocol: position.protocol,
+              network: position.network,
+              version: position.version,
+              userAddress: position.userAddress,
+              collateral: `${collateral} ETH`,
+              debt: `${debt} ETH`,
+              healthFactor,
+              fetchedTimestamp: new Date(position.fetchedTimestamp * 1000).toISOString(),
+              borrowedAssets,
+              suppliedAssets,
+              liquidationRisk,
+              details: position.details
+            };
+            
+            return summary;
+          };
+
+          // Save position data to a JSON file
+          const savePositionsToFile = (positions: UserProtocolPosition[], version: AaveVersion) => {
+            const dataDir = path.join(__dirname, '..', 'data');
+            
+            // Create data directory if it doesn't exist
+            if (!fs.existsSync(dataDir)) {
+              fs.mkdirSync(dataDir, { recursive: true });
+            }
+            
+            // Format the positions
+            const formattedPositions = positions.map(formatPositionData);
+            
+            // Create a filename with timestamp
+            const timestamp = new Date().toISOString().replace(/:/g, '-').replace(/\..+/, '');
+            const filename = `aave-${version}-positions-${timestamp}.json`;
+            const filePath = path.join(dataDir, filename);
+            
+            // Save to file with pretty formatting
+            fs.writeFileSync(
+              filePath, 
+              JSON.stringify(formattedPositions, null, 2)
+            );
+            
+            console.log(`Saved ${formattedPositions.length} positions to ${filePath}`);
+            
+            return filePath;
+          };
+
+          // Save positions to file
+          savePositionsToFile(validPositions, version);
+
         } catch (directError) {
           console.error(`Direct contract call error:`, 
             directError instanceof Error ? directError.message : String(directError)
@@ -373,7 +465,10 @@ class AaveServiceTester {
       };
       
       // Write the data to the file
-      fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+      fs.writeFileSync(
+        filePath, 
+        JSON.stringify(data, null, 2)
+      );
       
       console.log(`Results saved to: ${filePath}`);
       

@@ -35,10 +35,19 @@ export class AaveService extends BaseProtocolService {
    */
   constructor(config: AaveConfig) {
     super(config);
-    this.poolAddress = config.poolAddress;
-    this.dataProviderAddress = config.dataProviderAddress;
-    this.oracleAddress = config.oracleAddress;
+    
+    // Normalize all addresses to ensure proper checksums
+    this.poolAddress = config.poolAddress ? ethers.getAddress(config.poolAddress) : '';
+    this.dataProviderAddress = config.dataProviderAddress ? ethers.getAddress(config.dataProviderAddress) : '';
+    this.oracleAddress = config.oracleAddress ? ethers.getAddress(config.oracleAddress) : '';
     this.version = config.version || AaveVersion.V3;
+    
+    log.debug('AaveService created with normalized addresses', {
+      poolAddress: this.poolAddress,
+      dataProviderAddress: this.dataProviderAddress,
+      oracleAddress: this.oracleAddress,
+      version: this.version
+    });
   }
 
   /**
@@ -58,20 +67,24 @@ export class AaveService extends BaseProtocolService {
         await this.resolveAddressesIfNeeded(provider);
       }
 
+      // Double-check that all addresses are normalized with proper checksums
+      if (this.poolAddress) this.poolAddress = ethers.getAddress(this.poolAddress);
+      if (this.dataProviderAddress) this.dataProviderAddress = ethers.getAddress(this.dataProviderAddress);
+      if (this.oracleAddress) this.oracleAddress = ethers.getAddress(this.oracleAddress);
+
       // Get ABIs from provider
       const poolAbi = AaveAbiProvider.getPoolAbi(this.version);
       const dataProviderAbi = AaveAbiProvider.getDataProviderAbi(this.version);
       const oracleAbi = AaveAbiProvider.getOracleAbi(this.version);
 
-      log.debug('Initializing Aave contracts with official ABIs', {
+      log.debug('Initializing Aave contracts with official ABIs and normalized addresses', {
         version: this.version,
         poolAddress: this.poolAddress,
         dataProviderAddress: this.dataProviderAddress,
         oracleAddress: this.oracleAddress
       });
 
-      // Initialize contracts with the addresses as-is, without trying to normalize them
-      // This avoids checksum validation errors
+      // Initialize contracts with normalized addresses
       this.poolContract = new ethers.Contract(
         this.poolAddress, 
         poolAbi, 
@@ -315,7 +328,8 @@ export class AaveService extends BaseProtocolService {
           ),
           healthFactor: this.normalizeHealthFactor(parsedHealthFactor),
           fetchedTimestamp: Math.floor(Date.now() / 1000),
-          borrowedAssets: [], // Add empty array for consistency
+          borrowedAssets: [], // Will be populated below
+          suppliedAssets: [], // Initialize as empty array
           liquidationRisk: {
             threshold: liquidationThreshold?.toString() || '0',
             currentLTV: ltv?.toString() || '0'
@@ -340,6 +354,97 @@ export class AaveService extends BaseProtocolService {
             }
           }
         };
+        
+        // Fetch reserve data
+        try {
+          log.debug('Fetching reserve data for user', { userAddress: normalizedUserAddress });
+          
+          // Get reserves list
+          const reservesList = await this.getReservesList();
+          log.debug('Fetched reserves list', { count: reservesList.length });
+          
+          // Process each reserve
+          for (const assetAddress of reservesList) {
+            const reserveData = await this.getUserReserveData(normalizedUserAddress, assetAddress);
+            
+            if (!reserveData) continue;
+            
+            // Extract values based on the contract's return structure
+            // For Aave V3, getUserReserveData returns a tuple with the following structure:
+            // [currentATokenBalance, currentStableDebt, currentVariableDebt, principalStableDebt, 
+            //  scaledVariableDebt, stableBorrowRate, liquidityRate, stableRateLastUpdated, usageAsCollateralEnabled]
+            let currentATokenBalance, currentStableDebt, currentVariableDebt;
+            
+            if (Array.isArray(reserveData) || (typeof reserveData === 'object' && '0' in reserveData)) {
+              // Array response format (common in ethers.js v6+)
+              currentATokenBalance = reserveData[0];
+              currentStableDebt = reserveData[1];
+              currentVariableDebt = reserveData[2];
+            } else {
+              // Object response format (common in older ethers.js versions)
+              currentATokenBalance = reserveData.currentATokenBalance;
+              currentStableDebt = reserveData.currentStableDebt;
+              currentVariableDebt = reserveData.currentVariableDebt;
+            }
+            
+            // Skip if user has no interaction with this asset
+            if (
+              BigInt(currentATokenBalance.toString()) === BigInt(0) && 
+              BigInt(currentStableDebt.toString()) === BigInt(0) && 
+              BigInt(currentVariableDebt.toString()) === BigInt(0)
+            ) {
+              continue;
+            }
+            
+            // Get token metadata
+            const symbol = await this.getTokenSymbol(assetAddress);
+            const decimals = await this.getTokenDecimals(assetAddress);
+            
+            // Add to borrowed assets if there's any debt
+            const totalDebtForAsset = BigInt(currentStableDebt.toString()) + BigInt(currentVariableDebt.toString());
+            if (totalDebtForAsset > BigInt(0)) {
+              position.borrowedAssets.push({
+                symbol,
+                amount: ethers.formatUnits(totalDebtForAsset, decimals),
+                valueETH: '0', // We would need price data to calculate this
+                address: assetAddress
+              });
+              
+              log.debug('Added borrowed asset', { 
+                symbol, 
+                address: assetAddress,
+                amount: ethers.formatUnits(totalDebtForAsset, decimals)
+              });
+            }
+            
+            // Add to supplied assets if there's any balance
+            if (BigInt(currentATokenBalance.toString()) > BigInt(0)) {
+              position.suppliedAssets.push({
+                symbol,
+                address: assetAddress,
+                amount: ethers.formatUnits(currentATokenBalance, decimals)
+              });
+              
+              log.debug('Added supplied asset', { 
+                symbol, 
+                address: assetAddress,
+                amount: ethers.formatUnits(currentATokenBalance, decimals)
+              });
+            }
+          }
+          
+          log.info('Successfully fetched reserve data', {
+            userAddress: normalizedUserAddress,
+            borrowedAssetsCount: position.borrowedAssets.length,
+            suppliedAssetsCount: position.suppliedAssets.length
+          });
+        } catch (reserveError) {
+          log.warn('Failed to fetch reserve data, returning basic position only', {
+            error: reserveError instanceof Error ? reserveError.message : String(reserveError),
+            userAddress: normalizedUserAddress
+          });
+          // Continue with basic position data only
+        }
         
         positions.push(position);
         
@@ -433,6 +538,7 @@ export class AaveService extends BaseProtocolService {
         healthFactor: this.normalizeHealthFactor(position.healthFactor || '0'),
         fetchedTimestamp: position.timestamp || Math.floor(Date.now() / 1000),
         borrowedAssets: position.borrowedAssets || [], 
+        suppliedAssets: [], // Add empty suppliedAssets array
         liquidationRisk: {
           threshold: position.currentLiquidationThreshold || '0',
           currentLTV: position.ltv || '0'
@@ -551,6 +657,7 @@ export class AaveService extends BaseProtocolService {
         collateral: totalCollateral,
         debt: totalDebt,
         borrowedAssets,
+        suppliedAssets: [], // Add empty suppliedAssets array
         fetchedTimestamp: Math.floor(Date.now() / 1000),
         liquidationRisk: {
           threshold: userData.currentLiquidationThreshold || '0',
@@ -799,5 +906,119 @@ export class AaveService extends BaseProtocolService {
     
     // Return 0 for invalid or negative health factors
     return (isNaN(parsedHealthFactor) || parsedHealthFactor <= 0) ? '0' : formattedHealthFactor;
+  }
+
+  /**
+   * Get the list of reserves from the pool contract
+   * @returns Array of reserve addresses
+   */
+  private async getReservesList(): Promise<string[]> {
+    if (!this.poolContract) {
+      throw new Error('Pool contract not initialized');
+    }
+    
+    try {
+      log.debug('Fetching reserves list');
+      const reserves = await this.poolContract.getReservesList();
+      
+      // Ensure all addresses are properly checksummed
+      return reserves.map((address: string) => ethers.getAddress(address));
+    } catch (error) {
+      log.error('Failed to fetch reserves list', {
+        error: error instanceof Error ? error.message : String(error),
+        network: this.network
+      });
+      return [];
+    }
+  }
+
+  /**
+   * Get user reserve data for a specific asset
+   * @param userAddress User address
+   * @param assetAddress Asset address
+   * @returns User reserve data
+   */
+  private async getUserReserveData(userAddress: string, assetAddress: string): Promise<any> {
+    if (!this.dataProviderContract) {
+      throw new Error('Data provider contract not initialized');
+    }
+    
+    try {
+      // Normalize addresses to ensure proper checksum
+      const normalizedUserAddress = ethers.getAddress(userAddress);
+      const normalizedAssetAddress = ethers.getAddress(assetAddress);
+      
+      log.debug('Fetching user reserve data', { 
+        userAddress: normalizedUserAddress, 
+        assetAddress: normalizedAssetAddress,
+        network: this.network
+      });
+      
+      return await this.dataProviderContract.getUserReserveData(normalizedAssetAddress, normalizedUserAddress);
+    } catch (error) {
+      log.debug('Failed to fetch user reserve data', {
+        error: error instanceof Error ? error.message : String(error),
+        userAddress,
+        assetAddress,
+        network: this.network
+      });
+      return null;
+    }
+  }
+
+  /**
+   * Get token symbol from contract
+   * @param assetAddress Asset address
+   * @returns Token symbol
+   */
+  private async getTokenSymbol(assetAddress: string): Promise<string> {
+    try {
+      // Normalize address to ensure proper checksum
+      const normalizedAssetAddress = ethers.getAddress(assetAddress);
+      
+      const provider = await this.getProvider();
+      const tokenContract = new ethers.Contract(
+        normalizedAssetAddress,
+        ['function symbol() view returns (string)'],
+        provider
+      );
+      return await tokenContract.symbol();
+    } catch (error) {
+      log.debug('Failed to fetch token symbol', {
+        error: error instanceof Error ? error.message : String(error),
+        assetAddress,
+        network: this.network
+      });
+      // Return a shortened address as fallback
+      return assetAddress.substring(0, 6) + '...' + assetAddress.substring(assetAddress.length - 4);
+    }
+  }
+
+  /**
+   * Get token decimals from contract
+   * @param assetAddress Asset address
+   * @returns Token decimals
+   */
+  private async getTokenDecimals(assetAddress: string): Promise<number> {
+    try {
+      // Normalize address to ensure proper checksum
+      const normalizedAssetAddress = ethers.getAddress(assetAddress);
+      
+      const provider = await this.getProvider();
+      const tokenContract = new ethers.Contract(
+        normalizedAssetAddress,
+        ['function decimals() view returns (uint8)'],
+        provider
+      );
+      return await tokenContract.decimals();
+    } catch (error) {
+      log.debug('Failed to fetch token decimals', {
+        error: error instanceof Error ? error.message : String(error),
+        assetAddress,
+        network: this.network
+      });
+      // Return default decimals as fallback
+      return 18;
+    }
   }
 }

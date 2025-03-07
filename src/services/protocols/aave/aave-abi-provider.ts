@@ -32,6 +32,12 @@ export const AAVE_V2_LENDING_POOL_ABI = [
   "function getUserConfiguration(address user) view returns (uint256)"
 ];
 
+export const AAVE_V2_DATA_PROVIDER_ABI = [
+  "function getUserReserveData(address asset, address user) view returns (uint256 currentATokenBalance, uint256 currentStableDebt, uint256 currentVariableDebt, uint256 principalStableDebt, uint256 scaledVariableDebt, uint256 stableBorrowRate, uint256 liquidityRate, uint40 stableRateLastUpdated, bool usageAsCollateralEnabled)",
+  "function getReserveData(address asset) view returns (uint256 availableLiquidity, uint256 totalStableDebt, uint256 totalVariableDebt, uint256 liquidityRate, uint256 variableBorrowRate, uint256 stableBorrowRate, uint256 averageStableBorrowRate, uint256 liquidityIndex, uint256 variableBorrowIndex, uint40 lastUpdateTimestamp)",
+  "function getReserveConfigurationData(address asset) view returns (uint256 decimals, uint256 ltv, uint256 liquidationThreshold, uint256 liquidationBonus, uint256 reserveFactor, bool usageAsCollateralEnabled, bool borrowingEnabled, bool stableBorrowRateEnabled, bool isActive, bool isFrozen)"
+];
+
 // For backward compatibility
 export const AAVE_POOL_ABI = AAVE_V3_POOL_ABI;
 
@@ -74,7 +80,7 @@ export class AaveAbiProvider {
    */
   static getDataProviderAbi(version: AaveVersion) {
     log.debug('Getting Data Provider ABI', { version });
-    return POOL_ADDRESSES_PROVIDER_ABI;
+    return version === AaveVersion.V3 ? AAVE_V3_POOL_DATA_PROVIDER_ABI : AAVE_V2_DATA_PROVIDER_ABI;
   }
   
   /**
