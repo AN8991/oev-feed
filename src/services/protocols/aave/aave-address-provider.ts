@@ -6,6 +6,7 @@ import {
 import { AaveVersion } from './aave-config';
 import { ethers } from 'ethers';
 import { log } from '../../../utils/logger';
+import { normalizeAddress } from '../../../utils/address-utils';
 
 // ABI snippet for the LendingPoolAddressesProvider
 const LENDING_POOL_ADDRESSES_PROVIDER_ABI = [
@@ -140,11 +141,11 @@ export class AaveAddressProvider {
    */
   static verifyAddresses(addresses: AaveAddresses): boolean {
     try {
-      // Verify each address using ethers.js
+      // Verify each address using our utility function
       Object.entries(addresses).forEach(([key, address]) => {
         // Skip empty addresses (they'll be resolved dynamically)
         if (address) {
-          ethers.getAddress(address); // Will throw if invalid
+          normalizeAddress(address); // Will throw if invalid
         }
       });
       return true;

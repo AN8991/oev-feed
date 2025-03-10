@@ -4,6 +4,7 @@ import { ExtendedProtocolConfig, BaseConfigBuilder } from '../common/protocol-co
 import { ethers } from 'ethers';
 import { log } from '../../../utils/logger';
 import { AaveV3Ethereum, AaveV2Ethereum } from '@bgd-labs/aave-address-book';
+import { normalizeAddress } from '../../../utils/address-utils';
 
 /**
  * Aave protocol version
@@ -45,7 +46,7 @@ export class AaveConfigBuilder extends BaseConfigBuilder<AaveConfig> {
    */
   withPoolAddress(address: string): this {
     // Normalize address to ensure proper checksum
-    this.config.poolAddress = address ? ethers.getAddress(address) : '';
+    this.config.poolAddress = normalizeAddress(address);
     return this;
   }
 
@@ -55,7 +56,7 @@ export class AaveConfigBuilder extends BaseConfigBuilder<AaveConfig> {
    */
   withDataProviderAddress(address: string): this {
     // Normalize address to ensure proper checksum
-    this.config.dataProviderAddress = address ? ethers.getAddress(address) : '';
+    this.config.dataProviderAddress = normalizeAddress(address);
     return this;
   }
 
@@ -65,7 +66,7 @@ export class AaveConfigBuilder extends BaseConfigBuilder<AaveConfig> {
    */
   withOracleAddress(address: string): this {
     // Normalize address to ensure proper checksum
-    this.config.oracleAddress = address ? ethers.getAddress(address) : '';
+    this.config.oracleAddress = normalizeAddress(address);
     return this;
   }
 

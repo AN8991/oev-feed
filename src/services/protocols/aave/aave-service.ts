@@ -11,8 +11,8 @@ import { AaveConfig, AaveVersion } from './aave-config';
 import { AaveAbiProvider } from './aave-abi-provider';
 import { AaveAddressProvider } from './aave-address-provider';
 import { GET_USER_POSITIONS, GET_PROTOCOL_POSITIONS } from './queries';
-
-// Use log directly instead of creating a child logger
+import { normalizeAddress } from '../../../utils/address-utils';
+import { formatToEther, formatHealthFactor } from '../../../utils/numeric-utils';
 
 /**
  * Service for interacting with Aave protocol
@@ -37,9 +37,9 @@ export class AaveService extends BaseProtocolService {
     super(config);
     
     // Normalize all addresses to ensure proper checksums
-    this.poolAddress = config.poolAddress ? ethers.getAddress(config.poolAddress) : '';
-    this.dataProviderAddress = config.dataProviderAddress ? ethers.getAddress(config.dataProviderAddress) : '';
-    this.oracleAddress = config.oracleAddress ? ethers.getAddress(config.oracleAddress) : '';
+    this.poolAddress = normalizeAddress(config.poolAddress);
+    this.dataProviderAddress = normalizeAddress(config.dataProviderAddress);
+    this.oracleAddress = normalizeAddress(config.oracleAddress);
     this.version = config.version || AaveVersion.V3;
     
     log.debug('AaveService created with normalized addresses', {
@@ -68,9 +68,9 @@ export class AaveService extends BaseProtocolService {
       }
 
       // Double-check that all addresses are normalized with proper checksums
-      if (this.poolAddress) this.poolAddress = ethers.getAddress(this.poolAddress);
-      if (this.dataProviderAddress) this.dataProviderAddress = ethers.getAddress(this.dataProviderAddress);
-      if (this.oracleAddress) this.oracleAddress = ethers.getAddress(this.oracleAddress);
+      if (this.poolAddress) this.poolAddress = normalizeAddress(this.poolAddress);
+      if (this.dataProviderAddress) this.dataProviderAddress = normalizeAddress(this.dataProviderAddress);
+      if (this.oracleAddress) this.oracleAddress = normalizeAddress(this.oracleAddress);
 
       // Get ABIs from provider
       const poolAbi = AaveAbiProvider.getPoolAbi(this.version);
@@ -219,7 +219,7 @@ export class AaveService extends BaseProtocolService {
 
       try {
         // Normalize user address to ensure proper checksum format
-        const normalizedUserAddress = ethers.getAddress(userAddress);
+        const normalizedUserAddress = normalizeAddress(userAddress);
         
         // Get user account data - this contains all the information we need
         log.debug('Fetching user account data', { userAddress: normalizedUserAddress });
@@ -248,22 +248,13 @@ export class AaveService extends BaseProtocolService {
         
         // Handle array response format (common in ethers.js v6+)
         if (Array.isArray(accountData) || (typeof accountData === 'object' && '0' in accountData)) {
-          // V2 & V3 return values in slightly different order
-          if (this.version === AaveVersion.V3) {
-            // V3 response: [totalCollateralBase, totalDebtBase, availableBorrowsBase, currentLiquidationThreshold, ltv, healthFactor]
-            totalCollateral = accountData[0];
-            totalDebt = accountData[1];
-            liquidationThreshold = accountData[3];
-            ltv = accountData[4];
-            healthFactor = accountData[5];
-          } else {
-            // V2 response: [totalCollateralETH, totalDebtETH, availableBorrowsETH, currentLiquidationThreshold, ltv, healthFactor]
-            totalCollateral = accountData[0];
-            totalDebt = accountData[1];
-            liquidationThreshold = accountData[3];
-            ltv = accountData[4];
-            healthFactor = accountData[5];
-          }
+          // Both V2 & V3 have the same array structure for getUserAccountData
+          // [totalCollateral, totalDebt, availableBorrows, currentLiquidationThreshold, ltv, healthFactor]
+          totalCollateral = accountData[0];
+          totalDebt = accountData[1];
+          liquidationThreshold = accountData[3];
+          ltv = accountData[4];
+          healthFactor = accountData[5];
         } else {
           // Handle object response format (common in older ethers.js versions)
           // For V3
@@ -316,17 +307,9 @@ export class AaveService extends BaseProtocolService {
           network: this.network,
           version: this.version,
           userAddress: normalizedUserAddress,
-          collateral: ethers.formatEther(
-            typeof totalCollateral === 'bigint' 
-              ? totalCollateral 
-              : BigInt(totalCollateral.toString())
-          ),
-          debt: ethers.formatEther(
-            typeof totalDebt === 'bigint' 
-              ? totalDebt 
-              : BigInt(totalDebt.toString())
-          ),
-          healthFactor: this.normalizeHealthFactor(parsedHealthFactor),
+          collateral: formatToEther(totalCollateral),
+          debt: formatToEther(totalDebt),
+          healthFactor: parsedHealthFactor,
           fetchedTimestamp: Math.floor(Date.now() / 1000),
           borrowedAssets: [], // Will be populated below
           suppliedAssets: [], // Initialize as empty array
@@ -405,7 +388,7 @@ export class AaveService extends BaseProtocolService {
             if (totalDebtForAsset > BigInt(0)) {
               position.borrowedAssets.push({
                 symbol,
-                amount: ethers.formatUnits(totalDebtForAsset, decimals),
+                amount: formatToEther(totalDebtForAsset),
                 valueETH: '0', // We would need price data to calculate this
                 address: assetAddress
               });
@@ -413,7 +396,7 @@ export class AaveService extends BaseProtocolService {
               log.debug('Added borrowed asset', { 
                 symbol, 
                 address: assetAddress,
-                amount: ethers.formatUnits(totalDebtForAsset, decimals)
+                amount: formatToEther(totalDebtForAsset)
               });
             }
             
@@ -422,13 +405,13 @@ export class AaveService extends BaseProtocolService {
               position.suppliedAssets.push({
                 symbol,
                 address: assetAddress,
-                amount: ethers.formatUnits(currentATokenBalance, decimals)
+                amount: formatToEther(currentATokenBalance)
               });
               
               log.debug('Added supplied asset', { 
                 symbol, 
                 address: assetAddress,
-                amount: ethers.formatUnits(currentATokenBalance, decimals)
+                amount: formatToEther(currentATokenBalance)
               });
             }
           }
@@ -773,7 +756,7 @@ export class AaveService extends BaseProtocolService {
       }
       
       // Safely format health factor
-      const healthFactor = ethers.formatUnits(healthFactorBN, 18);
+      const healthFactor = formatToEther(healthFactorBN);
       
       // Additional validation
       const parsedHealthFactor = parseFloat(healthFactor);
@@ -817,98 +800,6 @@ export class AaveService extends BaseProtocolService {
   }
 
   /**
-   * Normalize the health factor to a human-readable format
-   * Aave returns health factor as a BigInt with 18 decimal places
-   */
-  private normalizeHealthFactor(healthFactor: string | bigint): string {
-    if (!healthFactor || healthFactor === '0') {
-      return '0';
-    }
-    
-    try {
-      // Check if the input is already in a decimal format
-      if (typeof healthFactor === 'string' && healthFactor.includes('.')) {
-        // Already normalized, just return it
-        return healthFactor;
-      }
-      
-      // Convert to BigInt if it's a string
-      let healthFactorValue: bigint;
-      if (typeof healthFactor === 'string') {
-        healthFactorValue = BigInt(healthFactor);
-      } else {
-        healthFactorValue = healthFactor;
-      }
-      
-      // If the value is small enough to be a regular number (not a raw contract value with 18 decimals)
-      if (healthFactorValue < BigInt(1000)) {
-        return healthFactorValue.toString();
-      }
-      
-      const divisor = BigInt(10 ** 18);
-      
-      // Get the whole number part
-      const wholePart = healthFactorValue / divisor;
-      
-      // Get the decimal part with proper precision
-      const decimalPart = healthFactorValue % divisor;
-      
-      // Format decimal part to have leading zeros if needed
-      let decimalStr = decimalPart.toString().padStart(18, '0');
-      
-      // Trim trailing zeros but keep two decimal places at minimum
-      decimalStr = decimalStr.substring(0, 2);
-      
-      // Combine whole and decimal parts
-      return `${wholePart}.${decimalStr}`;
-    } catch (error) {
-      console.error('Error normalizing health factor:', error);
-      
-      // If we can't normalize, try to return a reasonable value
-      if (typeof healthFactor === 'string') {
-        // If it's already a string, just return it
-        return healthFactor;
-      } else {
-        // Convert bigint to string as a fallback
-        return healthFactor.toString();
-      }
-    }
-  }
-
-  /**
-   * Parse health factor value from contract
-   * @param healthFactor The health factor from the contract
-   * @returns Formatted health factor string
-   */
-  private parseHealthFactor(healthFactor: any): string {
-    // Convert to BigInt if it's not already
-    const healthFactorBigInt = typeof healthFactor === 'bigint' 
-      ? healthFactor 
-      : BigInt(healthFactor.toString());
-
-    // Check for max uint256 value, which often indicates uninitialized state
-    const MAX_UINT256 = BigInt('0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff');
-    const HALF_MAX_UINT256 = MAX_UINT256 / BigInt(2);
-
-    // If health factor is extremely large, return 0
-    if (healthFactorBigInt >= HALF_MAX_UINT256) {
-      log.warn('Extremely large health factor detected, likely uninitialized', { 
-        healthFactor: healthFactorBigInt.toString() 
-      });
-      return '0';
-    }
-
-    // Format health factor with 18 decimal places
-    const formattedHealthFactor = ethers.formatEther(healthFactorBigInt);
-    
-    // Additional validation
-    const parsedHealthFactor = parseFloat(formattedHealthFactor);
-    
-    // Return 0 for invalid or negative health factors
-    return (isNaN(parsedHealthFactor) || parsedHealthFactor <= 0) ? '0' : formattedHealthFactor;
-  }
-
-  /**
    * Get the list of reserves from the pool contract
    * @returns Array of reserve addresses
    */
@@ -922,7 +813,7 @@ export class AaveService extends BaseProtocolService {
       const reserves = await this.poolContract.getReservesList();
       
       // Ensure all addresses are properly checksummed
-      return reserves.map((address: string) => ethers.getAddress(address));
+      return reserves.map((address: string) => normalizeAddress(address));
     } catch (error) {
       log.error('Failed to fetch reserves list', {
         error: error instanceof Error ? error.message : String(error),
@@ -945,8 +836,8 @@ export class AaveService extends BaseProtocolService {
     
     try {
       // Normalize addresses to ensure proper checksum
-      const normalizedUserAddress = ethers.getAddress(userAddress);
-      const normalizedAssetAddress = ethers.getAddress(assetAddress);
+      const normalizedUserAddress = normalizeAddress(userAddress);
+      const normalizedAssetAddress = normalizeAddress(assetAddress);
       
       log.debug('Fetching user reserve data', { 
         userAddress: normalizedUserAddress, 
@@ -974,7 +865,7 @@ export class AaveService extends BaseProtocolService {
   private async getTokenSymbol(assetAddress: string): Promise<string> {
     try {
       // Normalize address to ensure proper checksum
-      const normalizedAssetAddress = ethers.getAddress(assetAddress);
+      const normalizedAssetAddress = normalizeAddress(assetAddress);
       
       const provider = await this.getProvider();
       const tokenContract = new ethers.Contract(
@@ -1002,7 +893,7 @@ export class AaveService extends BaseProtocolService {
   private async getTokenDecimals(assetAddress: string): Promise<number> {
     try {
       // Normalize address to ensure proper checksum
-      const normalizedAssetAddress = ethers.getAddress(assetAddress);
+      const normalizedAssetAddress = normalizeAddress(assetAddress);
       
       const provider = await this.getProvider();
       const tokenContract = new ethers.Contract(
@@ -1020,5 +911,79 @@ export class AaveService extends BaseProtocolService {
       // Return default decimals as fallback
       return 18;
     }
+  }
+
+  /**
+   * Parse and normalize health factor from contract response
+   * Handles different formats and extremely large values
+   * @param healthFactor The health factor from the contract
+   * @returns Formatted health factor string
+   */
+  private parseHealthFactor(healthFactor: any): string {
+    if (!healthFactor || healthFactor === '0') {
+      return '0';
+    }
+    
+    try {
+      // Check if the input is already in a decimal format
+      if (typeof healthFactor === 'string' && healthFactor.includes('.')) {
+        // Already normalized, just return it
+        return healthFactor;
+      }
+      
+      // Convert to BigInt if it's not already
+      const healthFactorBigInt = typeof healthFactor === 'bigint' 
+        ? healthFactor 
+        : BigInt(healthFactor.toString());
+
+      // Check for max uint256 value, which often indicates uninitialized state
+      const MAX_UINT256 = BigInt('0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff');
+      const HALF_MAX_UINT256 = MAX_UINT256 / BigInt(2);
+
+      // If health factor is extremely large, return 0
+      if (healthFactorBigInt >= HALF_MAX_UINT256) {
+        log.warn('Extremely large health factor detected, likely uninitialized', { 
+          healthFactor: healthFactorBigInt.toString() 
+        });
+        return '0';
+      }
+
+      // Format health factor with 18 decimal places
+      const formattedHealthFactor = formatToEther(healthFactorBigInt);
+      
+      // Additional validation
+      const parsedHealthFactor = parseFloat(formattedHealthFactor);
+      
+      // Return 0 for invalid or negative health factors
+      if (isNaN(parsedHealthFactor) || parsedHealthFactor <= 0) {
+        return '0';
+      }
+      
+      // For small values, return as is
+      if (healthFactorBigInt < BigInt(1000)) {
+        return healthFactorBigInt.toString();
+      }
+      
+      return formattedHealthFactor;
+    } catch (error) {
+      log.error('Error parsing health factor:', error);
+      
+      // If we can't parse, try to return a reasonable value
+      if (typeof healthFactor === 'string') {
+        // If it's already a string, just return it
+        return healthFactor;
+      } else {
+        // Convert to string as a fallback
+        return String(healthFactor);
+      }
+    }
+  }
+
+  /**
+   * Normalize the health factor to a human-readable format
+   * This is an alias to parseHealthFactor for backward compatibility
+   */
+  private normalizeHealthFactor(healthFactor: string | bigint): string {
+    return this.parseHealthFactor(healthFactor);
   }
 }

@@ -1,6 +1,7 @@
 import { Network } from '../../../types/networks';
 import { Protocol } from '../../../types/protocols';
 import { ExtendedProtocolConfig, BaseConfigBuilder } from '../common/protocol-config';
+import { normalizeAddress } from '../../../utils/address-utils';
 
 /**
  * Configuration for Protocol service
@@ -17,7 +18,7 @@ export class ProtocolConfigBuilder extends BaseConfigBuilder<ProtocolConfig> {
   constructor() {
     super();
     // Set default protocol
-    this.withProtocol(Protocol.PROTOCOL); // Replace with actual protocol enum value
+    this.withProtocol(Protocol.AAVE); // Using AAVE as a placeholder, should be replaced with actual protocol
   }
 
   /**
@@ -25,7 +26,8 @@ export class ProtocolConfigBuilder extends BaseConfigBuilder<ProtocolConfig> {
    * @param address The contract address
    */
   withContractAddress(address: string): this {
-    this.config.contractAddress = address;
+    // Normalize address to ensure proper checksum
+    this.config.contractAddress = normalizeAddress(address);
     return this;
   }
 
