@@ -3,17 +3,13 @@ import { Protocol } from '../../../types/protocols';
 import { ExtendedProtocolConfig, BaseConfigBuilder } from '../common/protocol-config';
 import { normalizeAddress } from '../../../utils/address-utils';
 
-/**
- * Configuration for Protocol service
- */
+//Configuration for Protocol service
 export interface ProtocolConfig extends ExtendedProtocolConfig {
   contractAddress: string;
   // Add other protocol-specific configuration properties here
 }
 
-/**
- * Builder for Protocol service configuration
- */
+//Builder for Protocol service configuration
 export class ProtocolConfigBuilder extends BaseConfigBuilder<ProtocolConfig> {
   constructor() {
     super();
@@ -21,21 +17,16 @@ export class ProtocolConfigBuilder extends BaseConfigBuilder<ProtocolConfig> {
     this.withProtocol(Protocol.AAVE); // Using AAVE as a placeholder, should be replaced with actual protocol
   }
 
-  /**
-   * Set the contract address
-   * @param address The contract address
-   */
+  //Set the contract address
   withContractAddress(address: string): this {
     // Normalize address to ensure proper checksum
     this.config.contractAddress = normalizeAddress(address);
     return this;
   }
 
-  // Add other protocol-specific configuration methods here
+  //TODO:Add other protocol-specific configuration methods here
 
-  /**
-   * Validate the configuration
-   */
+  //Validate the configuration
   validate(): void {
     super.validate();
     

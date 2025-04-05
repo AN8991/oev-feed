@@ -26,10 +26,13 @@ export class ProviderManager {
     return ProviderManager.instance;
   }
 
+
+  // Register provider configuration
   async initializeProvider(key: string, config: ProviderConfig): Promise<void> {
     this.config.set(key, config);
   }
 
+  // Creates and caches ethers.js provider instances
   async getProvider(key: string): Promise<ethers.JsonRpcProvider> {
     const config = this.config.get(key);
     if (!config) {

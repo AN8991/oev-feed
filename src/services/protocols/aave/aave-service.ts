@@ -14,9 +14,7 @@ import { GET_USER_POSITIONS, GET_PROTOCOL_POSITIONS } from './queries';
 import { normalizeAddress } from '../../../utils/address-utils';
 import { formatToEther, formatHealthFactor } from '../../../utils/numeric-utils';
 
-/**
- * Service for interacting with Aave protocol
- */
+// Service for interacting with Aave protocol
 export class AaveService extends BaseProtocolService {
   // Configuration
   private poolAddress: string;
@@ -29,10 +27,7 @@ export class AaveService extends BaseProtocolService {
   private dataProviderContract: ethers.Contract | null = null;
   private oracleContract: ethers.Contract | null = null;
 
-  /**
-   * Constructor
-   * @param config Configuration for the service
-   */
+  // Constructor sets Configuration for the service
   constructor(config: AaveConfig) {
     super(config);
     
@@ -50,9 +45,7 @@ export class AaveService extends BaseProtocolService {
     });
   }
 
-  /**
-   * Initialize the service
-   */
+  // Initialize the service
   async initialize(): Promise<void> {
     if (this.initialized) {
       return;
@@ -123,11 +116,7 @@ export class AaveService extends BaseProtocolService {
     }
   }
   
-  /**
-   * Resolve addresses dynamically if needed
-   * This is primarily for V2 where addresses might not be available statically
-   * @param provider The ethers provider
-   */
+  //Resolve addresses dynamically if needed. This is primarily for V2 where addresses might not be available statically
   private async resolveAddressesIfNeeded(provider: ethers.Provider): Promise<void> {
     // Check if any addresses are empty and need to be resolved
     if (!this.poolAddress || !this.dataProviderAddress || !this.oracleAddress) {
@@ -146,12 +135,10 @@ export class AaveService extends BaseProtocolService {
         // Update addresses if they were empty
         if (!this.poolAddress) {
           this.poolAddress = resolvedAddresses.poolAddress;
-        }
-        
+        }      
         if (!this.dataProviderAddress) {
           this.dataProviderAddress = resolvedAddresses.dataProviderAddress;
-        }
-        
+        }        
         if (!this.oracleAddress) {
           this.oracleAddress = resolvedAddresses.oracleAddress;
         }
@@ -182,18 +169,12 @@ export class AaveService extends BaseProtocolService {
     return Protocol.AAVE;
   }
 
-  /**
-   * Get the data source type for this service
-   */
+  // Get the data source type for this service
   getDataSourceType(): DataSourceType {
     return DataSourceType.ON_CHAIN;
   }
 
-  /**
-   * Fetch user positions from on-chain data
-   * @param params Query parameters
-   * @returns List of user positions
-   */
+  // Initialize contracts. Return user positions from on-chain data
   protected async fetchFromOnChain(
     params: ProtocolQueryParams
   ): Promise<UserProtocolPosition[]> {
@@ -221,7 +202,7 @@ export class AaveService extends BaseProtocolService {
         // Normalize user address to ensure proper checksum format
         const normalizedUserAddress = normalizeAddress(userAddress);
         
-        // Get user account data - this contains all the information we need
+        // Get user account data on AAVE pool contract. This contains all the info we need
         log.debug('Fetching user account data', { userAddress: normalizedUserAddress });
         
         let accountData;
@@ -301,7 +282,7 @@ export class AaveService extends BaseProtocolService {
           return [];
         }
         
-        // Create position object with safe BigInt conversion
+        // Create position object with safe BigInt conversion which act as metadata
         const position: UserProtocolPosition = {
           protocol: Protocol.AAVE,
           network: this.network,
@@ -457,9 +438,7 @@ export class AaveService extends BaseProtocolService {
     }
   }
 
-  /**
-   * Fetch user positions from subgraph
-   */
+  //TODO:Fetch user positions from subgraph
   protected async fetchFromSubgraph(params: ProtocolQueryParams): Promise<UserProtocolPosition[]> {
     if (!this.subgraphUrl) {
       log.warn('Subgraph URL not configured for AaveService', {
@@ -468,7 +447,7 @@ export class AaveService extends BaseProtocolService {
       return [];
     }
     
-    // Validate and normalize userAddress
+    // TODO:Validate and normalize userAddress
     const userAddress = params.userAddress;
     if (!userAddress) {
       log.warn('No user address provided for subgraph query', { 
@@ -477,7 +456,7 @@ export class AaveService extends BaseProtocolService {
       return [];
     }
 
-    // Validate address format
+    // TODO:Validate address format
     if (!ethers.isAddress(userAddress)) {
       log.warn('Invalid user address format for subgraph query', { 
         userAddress, 
@@ -487,7 +466,7 @@ export class AaveService extends BaseProtocolService {
     }
 
     try {
-      // Prepare GraphQL query
+      // TODO:Prepare GraphQL query
       const query = GET_USER_POSITIONS;
       const variables = {
         userAddress: userAddress.toLowerCase(), // Subgraphs typically use lowercase addresses
@@ -495,10 +474,10 @@ export class AaveService extends BaseProtocolService {
         toTimestamp: params.toTimestamp
       };
 
-      // Execute GraphQL query
+      // TODO:Execute GraphQL query
       const response = await this.executeSubgraphQuery(query, variables);
 
-      // Process and validate response
+      // TODO:Process and validate response
       if (!response || !response.data) {
         log.warn('Empty response from Aave subgraph', { 
           userAddress, 
@@ -507,10 +486,10 @@ export class AaveService extends BaseProtocolService {
         return [];
       }
 
-      // Extract positions from subgraph response
+      // TODO:Extract positions from subgraph response
       const subgraphPositions = response.data.userPositions || [];
 
-      // Transform subgraph positions to UserProtocolPosition
+      // TODO:Transform subgraph positions to UserProtocolPosition
       const positions: UserProtocolPosition[] = subgraphPositions.map((position: any) => ({
         protocol: Protocol.AAVE,
         network: this.network,
@@ -544,16 +523,12 @@ export class AaveService extends BaseProtocolService {
         network: this.network 
       });
       
-      // Return an empty array instead of throwing to prevent breaking the entire fetch process
+      // Return an empty array to prevent breaking the entire fetch process
       return [];
     }
   }
 
-  /**
-   * Fetch user positions from the protocol
-   * @param params Protocol query parameters
-   * @returns Array of user positions
-   */
+  //Fetch user positions from the protocol for a particular address
   async fetchUserPositions(params: ProtocolQueryParams): Promise<UserProtocolPosition[]> {
     const { userAddress } = params;
     
@@ -574,9 +549,7 @@ export class AaveService extends BaseProtocolService {
     );
   }
 
-  /**
-   * Process user data from subgraph
-   */
+  //TODO:Process user data from subgraph
   private processSubgraphData(
     userAddress: string,
     data: {
@@ -661,9 +634,7 @@ export class AaveService extends BaseProtocolService {
     }
   }
 
-  /**
-   * Execute a subgraph query with error handling
-   */
+  // TODO:Execute a subgraph query with error handling
   private async executeSubgraphQuery(query: string, variables: Record<string, any>): Promise<any> {
     if (!this.subgraphUrl) {
       log.warn('Subgraph URL not configured', {
@@ -693,7 +664,7 @@ export class AaveService extends BaseProtocolService {
 
       const result = await response.json();
       
-      // Check for GraphQL errors
+      //TODO:Check for GraphQL errors
       if (result.errors) {
         log.warn('GraphQL errors in subgraph query', {
           errors: result.errors,
@@ -714,9 +685,7 @@ export class AaveService extends BaseProtocolService {
     }
   }
 
-  /**
-   * Get health factor for a user
-   */
+  //Retrieve health factor for a user
   async getHealthFactor(params: ProtocolQueryParams): Promise<string> {
     if (!this.initialized || !this.poolContract) {
       throw new Error('AaveService not initialized');
@@ -786,9 +755,7 @@ export class AaveService extends BaseProtocolService {
     }
   }
   
-  /**
-   * Clean up resources
-   */
+  // Clean up resources
   protected async cleanup(): Promise<void> {
     // Reset contract instances
     this.poolContract = null;
@@ -799,10 +766,7 @@ export class AaveService extends BaseProtocolService {
     await super.cleanup();
   }
 
-  /**
-   * Get the list of reserves from the pool contract
-   * @returns Array of reserve addresses
-   */
+  //Get the list of reserves from the pool contract. Returns an array of reserve addresses.
   private async getReservesList(): Promise<string[]> {
     if (!this.poolContract) {
       throw new Error('Pool contract not initialized');
@@ -823,12 +787,7 @@ export class AaveService extends BaseProtocolService {
     }
   }
 
-  /**
-   * Get user reserve data for a specific asset
-   * @param userAddress User address
-   * @param assetAddress Asset address
-   * @returns User reserve data
-   */
+  // Get user reserve data for a specific asset
   private async getUserReserveData(userAddress: string, assetAddress: string): Promise<any> {
     if (!this.dataProviderContract) {
       throw new Error('Data provider contract not initialized');
@@ -857,11 +816,7 @@ export class AaveService extends BaseProtocolService {
     }
   }
 
-  /**
-   * Get token symbol from contract
-   * @param assetAddress Asset address
-   * @returns Token symbol
-   */
+  //Get token symbol from contract
   private async getTokenSymbol(assetAddress: string): Promise<string> {
     try {
       // Normalize address to ensure proper checksum
@@ -885,11 +840,7 @@ export class AaveService extends BaseProtocolService {
     }
   }
 
-  /**
-   * Get token decimals from contract
-   * @param assetAddress Asset address
-   * @returns Token decimals
-   */
+  // Get token decimals from contract
   private async getTokenDecimals(assetAddress: string): Promise<number> {
     try {
       // Normalize address to ensure proper checksum

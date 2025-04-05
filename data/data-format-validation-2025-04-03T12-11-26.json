@@ -1,0 +1,139 @@
+{
+  "validationResults": [
+    {
+      "position": "Sample Position",
+      "isValid": true,
+      "errors": []
+    },
+    {
+      "file": "aave-v3-positions-2025-03-07T13-20-41.json",
+      "positions": [
+        {
+          "index": 0,
+          "isValid": true,
+          "errors": []
+        }
+      ]
+    },
+    {
+      "file": "aave-v3-positions-2025-03-07T13-20-56.json",
+      "positions": [
+        {
+          "index": 0,
+          "isValid": true,
+          "errors": []
+        }
+      ]
+    },
+    {
+      "file": "aave-v3-positions-2025-03-07T13-51-25.json",
+      "positions": [
+        {
+          "index": 0,
+          "isValid": true,
+          "errors": []
+        }
+      ]
+    },
+    {
+      "file": "aave-v3-positions-2025-03-10T05-52-43.json",
+      "positions": [
+        {
+          "index": 0,
+          "isValid": true,
+          "errors": []
+        }
+      ]
+    },
+    {
+      "file": "aave-v3-positions-2025-03-10T05-54-17.json",
+      "positions": [
+        {
+          "index": 0,
+          "isValid": true,
+          "errors": []
+        }
+      ]
+    },
+    {
+      "file": "aave-v3-positions-2025-03-10T06-02-24.json",
+      "positions": [
+        {
+          "index": 0,
+          "isValid": true,
+          "errors": []
+        }
+      ]
+    },
+    {
+      "file": "aave-v3-positions-2025-04-03T00-27-20.json",
+      "positions": [
+        {
+          "index": 0,
+          "isValid": true,
+          "errors": []
+        }
+      ]
+    },
+    {
+      "file": "aave-v3-positions-2025-04-03T08-48-43.json",
+      "positions": [
+        {
+          "index": 0,
+          "isValid": true,
+          "errors": []
+        }
+      ]
+    },
+    {
+      "file": "aave-v3-positions-2025-04-03T12-11-19.json",
+      "positions": [
+        {
+          "index": 0,
+          "isValid": true,
+          "errors": []
+        }
+      ]
+    }
+  ],
+  "formattingExample": {
+    "protocol": "AAVE",
+    "network": "ethereum",
+    "version": "v3",
+    "userAddress": "0xf0bb20865277aBd641a307eCe5Ee04E79073416C",
+    "collateral": "0.076367 ETH",
+    "debt": "0.067992 ETH",
+    "healthFactor": "1.0670",
+    "fetchedTimestamp": "2025-04-03T12:11:26.000Z",
+    "borrowedAssets": [
+      {
+        "symbol": "WETH",
+        "address": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+        "amount": "313206.69618167",
+        "valueETH": "0.000000"
+      }
+    ],
+    "suppliedAssets": [
+      {
+        "symbol": "weETH",
+        "address": "0xCd5fE23C85820F7B72D0926FC9b05b43E359b7ee",
+        "amount": "331295.82906697"
+      }
+    ],
+    "liquidationRisk": {
+      "threshold": "95.00%",
+      "currentLTV": "93.00%"
+    },
+    "details": {
+      "onChainData": {
+        "totalCollateral": "76366803747782627",
+        "totalDebt": "67992162433900694",
+        "healthFactor": "1067012152039174497"
+      }
+    }
+  },
+  "summary": {
+    "passed": 10,
+    "failed": 0
+  }
+}

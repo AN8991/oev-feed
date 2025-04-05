@@ -43,7 +43,7 @@ export class ProviderFallbackService {
     return this.fallbackConfigs.get(network);
   }
 
-  // Execute an operation with provider fallback
+  // Execute an operation with provider fallback.
   async executeWithFallback<T>(
     network: Network,
     operation: (provider: ethers.JsonRpcProvider) => Promise<T>,

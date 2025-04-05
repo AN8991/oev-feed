@@ -1,8 +1,10 @@
+/**
+ * Define ABIs directly by including only the necessary methods, instead of importing from @aave/core-v3
+ * These are simplified versions of the actual ABIs. This approach reduces dependencies and simplifies the codebase
+ * We have to manually update the ABIs if contract interfaces change
+*/
 import { AaveVersion } from './aave-config';
 import { log } from '../../../utils/logger';
-
-// Define ABIs directly instead of importing from @aave/core-v3
-// These are simplified versions of the actual ABIs
 
 // Pool ABI with essential methods
 export const AAVE_V3_POOL_ABI = [
@@ -63,40 +65,25 @@ const POOL_ADDRESSES_PROVIDER_ABI = [
  * Uses hardcoded ABIs for essential methods
  */
 export class AaveAbiProvider {
-  /**
-   * Get Pool ABI for the specified version
-   * @param version The Aave protocol version
-   * @returns The ABI for the Pool contract
-   */
+  // Get Pool ABI for the specified version
   static getPoolAbi(version: AaveVersion) {
     log.debug('Getting Pool ABI', { version });
     return version === AaveVersion.V3 ? AAVE_V3_POOL_ABI : AAVE_V2_LENDING_POOL_ABI;
   }
   
-  /**
-   * Get Data Provider ABI for the specified version
-   * @param version The Aave protocol version
-   * @returns The ABI for the Data Provider contract
-   */
+  // Get Data Provider ABI for the specified version
   static getDataProviderAbi(version: AaveVersion) {
     log.debug('Getting Data Provider ABI', { version });
     return version === AaveVersion.V3 ? AAVE_V3_POOL_DATA_PROVIDER_ABI : AAVE_V2_DATA_PROVIDER_ABI;
   }
   
-  /**
-   * Get Oracle ABI for the specified version
-   * @param version The Aave protocol version
-   * @returns The ABI for the Oracle contract
-   */
+  // Get Oracle ABI for the specified version
   static getOracleAbi(version: AaveVersion) {
     log.debug('Getting Oracle ABI', { version });
     return AAVE_V3_ORACLE_ABI;
   }
   
-  /**
-   * Get Pool Addresses Provider ABI
-   * @returns The ABI for the Pool Addresses Provider contract
-   */
+  // Get Pool Addresses Provider ABI
   static getPoolAddressesProviderAbi() {
     return POOL_ADDRESSES_PROVIDER_ABI;
   }

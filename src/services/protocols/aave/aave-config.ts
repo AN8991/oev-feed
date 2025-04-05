@@ -6,17 +6,13 @@ import { log } from '../../../utils/logger';
 import { AaveV3Ethereum, AaveV2Ethereum } from '@bgd-labs/aave-address-book';
 import { normalizeAddress } from '../../../utils/address-utils';
 
-/**
- * Aave protocol version
- */
+//Aave protocol version
 export enum AaveVersion {
   V2 = 'v2',
   V3 = 'v3'
 }
 
-/**
- * Configuration for Aave service
- */
+//Configuration for Aave service
 export interface AaveConfig extends ExtendedProtocolConfig {
   poolAddress: string;
   dataProviderAddress: string;
@@ -24,9 +20,7 @@ export interface AaveConfig extends ExtendedProtocolConfig {
   version: AaveVersion;
 }
 
-/**
- * Builder for Aave service configuration
- */
+//Builder for Aave service configuration
 export class AaveConfigBuilder extends BaseConfigBuilder<AaveConfig> {
   constructor() {
     super();
@@ -40,48 +34,34 @@ export class AaveConfigBuilder extends BaseConfigBuilder<AaveConfig> {
     this.config.oracleAddress = AaveV3Ethereum.ORACLE;
   }
 
-  /**
-   * Set the pool address
-   * @param address The pool contract address
-   */
+  //Set the pool contract address
   withPoolAddress(address: string): this {
     // Normalize address to ensure proper checksum
     this.config.poolAddress = normalizeAddress(address);
     return this;
   }
 
-  /**
-   * Set the data provider address
-   * @param address The data provider contract address
-   */
+  //Set the data provider contract address
   withDataProviderAddress(address: string): this {
     // Normalize address to ensure proper checksum
     this.config.dataProviderAddress = normalizeAddress(address);
     return this;
   }
 
-  /**
-   * Set the oracle address
-   * @param address The oracle contract address
-   */
+  //Set the oracle contract address
   withOracleAddress(address: string): this {
     // Normalize address to ensure proper checksum
     this.config.oracleAddress = normalizeAddress(address);
     return this;
   }
 
-  /**
-   * Set the Aave protocol version
-   * @param version The Aave protocol version
-   */
+  //Set the Aave protocol version
   withVersion(version: AaveVersion): this {
     this.config.version = version;
     return this;
   }
 
-  /**
-   * Validate the configuration
-   */
+  //Validate the configuration
   validate(): void {
     super.validate();
     

@@ -7,9 +7,7 @@ import { AaveConfig, AaveConfigBuilder, AaveVersion } from './aave-config';
 import { AaveAddressProvider } from './aave-address-provider';
 import { ethers } from 'ethers';
 
-/**
- * Factory for creating Aave service instances
- */
+//Factory for creating Aave service instances
 export class AaveServiceFactory extends BaseProtocolServiceFactory<AaveService, AaveConfig> {
   private static instance: AaveServiceFactory;
   
@@ -17,9 +15,7 @@ export class AaveServiceFactory extends BaseProtocolServiceFactory<AaveService, 
     super(Protocol.AAVE);
   }
   
-  /**
-   * Get the singleton instance of the factory
-   */
+   //Get the singleton instance of the factory
   static getInstance(): AaveServiceFactory {
     if (!AaveServiceFactory.instance) {
       AaveServiceFactory.instance = new AaveServiceFactory();
@@ -27,10 +23,7 @@ export class AaveServiceFactory extends BaseProtocolServiceFactory<AaveService, 
     return AaveServiceFactory.instance;
   }
   
-  /**
-   * Create a new Aave service instance
-   * @param config Service configuration
-   */
+  //Create a new Aave service instance
   async createService(config: AaveConfig): Promise<AaveService> {
     const key = this.getServiceKey(config);
     
@@ -68,11 +61,7 @@ export class AaveServiceFactory extends BaseProtocolServiceFactory<AaveService, 
     }
   }
   
-  /**
-   * Get a service instance for a specific network
-   * @param network The network to get a service for
-   * @param version Optional Aave version, defaults to V3
-   */
+  //Get a service instance for a specific network. Defaults to V3
   async getServiceForNetwork(
     network: Network, 
     version: AaveVersion = AaveVersion.V3
@@ -93,11 +82,7 @@ export class AaveServiceFactory extends BaseProtocolServiceFactory<AaveService, 
     return this.createService(config);
   }
   
-  /**
-   * Create configuration for a specific network and version
-   * @param network The network to create configuration for
-   * @param version The Aave version to use
-   */
+  //Create configuration for a specific network and version
   private async createConfigForNetwork(
     network: Network, 
     version: AaveVersion = AaveVersion.V3
@@ -154,10 +139,7 @@ export class AaveServiceFactory extends BaseProtocolServiceFactory<AaveService, 
       .build();
   }
   
-  /**
-   * Get a unique key for a service configuration
-   * @param config The service configuration
-   */
+  //Get a unique key for a service configuration
   protected getServiceKey(config: AaveConfig): string {
     return `${config.network}-v${config.version}`;
   }

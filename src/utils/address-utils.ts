@@ -1,10 +1,6 @@
 import { ethers } from 'ethers';
 
-/**
- * Normalize an Ethereum address to ensure proper checksum format
- * @param address The address to normalize
- * @returns The normalized address with proper checksum, or empty string if input is falsy
- */
+//Normalize an Ethereum address to ensure proper checksum format or empty string if input is false
 export function normalizeAddress(address: string | undefined | null): string {
   if (!address) {
     return '';
@@ -17,11 +13,8 @@ export function normalizeAddress(address: string | undefined | null): string {
   }
 }
 
-/**
- * Normalize multiple Ethereum addresses at once
- * @param addresses Object containing addresses to normalize
- * @returns New object with normalized addresses
- */
+
+//Normalize multiple Ethereum addresses at once. Return New object with normalized addresses
 export function normalizeAddresses<T extends Record<string, string | undefined | null>>(
   addresses: T
 ): Record<keyof T, string> {
