@@ -1,5 +1,5 @@
 // Import required libraries for Ethereum address validation and file operations
-import { ethers } from 'ethers';
+import { getAddress } from 'ethers';
 import { AaveV3Ethereum, AaveV2Ethereum } from '@bgd-labs/aave-address-book';
 import fs from 'fs';
 import path from 'path';
@@ -43,7 +43,7 @@ const testCases: AddressTestCase[] = [
 function validateAddressChecksum(address: string): { isValid: boolean; normalizedAddress: string; error?: string } {
   try {
     // Use ethers.js to normalize the address and check if it matches the original
-    const normalizedAddress = ethers.getAddress(address);
+    const normalizedAddress = getAddress(address);
     const isValid = normalizedAddress === address;
     return { isValid, normalizedAddress };
   } catch (error) {
