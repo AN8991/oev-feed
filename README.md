@@ -30,7 +30,7 @@ cd /Users/auro/Documents/Projects/oev-feed && git clean -fd
 - GraphQL
 - PostgreSQL
 - Ethers.js v6+
-- Prisma ORM
+- TypeORM
 
 ## Getting Started
 
@@ -53,27 +53,6 @@ Set up Environment Variables:
 - DATABASE_URL: Your PostgreSQL connection string with username:password
 - ALCHEMY_API_KEY: Your Alchemy API key for blockchain access
 - INFURA_API_KEY: Your Infura API key (alternative provider)
-
-```bash
-# Run the Prisma Dependencies:
-npx prisma generate
-npx prisma db push
-
-# Or use the npm script
-npm run prisma:generate
-
-# Run the tests
-npm run test:all
-```
-
-## Available Scripts
-
-- `test:aave`: Test Aave service functionality
-- `test:address-validation`: Test Ethereum address validation
-- `test:data-format`: Test data formatting
-- `test:all`: Run all tests
-- `verify:contracts`: Verify contract addresses
-- `prisma:generate`: Generate Prisma client
 
 ## Implementation Notes
 
