@@ -10,7 +10,7 @@ This document outlines the implementation details of the OEV Feed project, which
 
 - Established the new directory structure according to Hexagonal Architecture
 - Set up TypeScript configuration for strict type checking and path aliases (see @domain, @adapters, etc.)
-- Barrel files created for simplified imports
+- All imports now use direct path aliases (e.g., `@domain/*`, `@adapters/*`). Barrel files have been removed to improve optimization and clarity, in line with project standards.
 
 ### 2.2 Domain Layer
 
@@ -33,6 +33,7 @@ This document outlines the implementation details of the OEV Feed project, which
   - request-distributor.ts: Intelligent request routing
   - dashboard-service.ts: Monitoring dashboard
   - data-source-fallback.ts: Data source fallback strategies
+  - Enhanced-provider.adapter.ts: Circuit breaker and retry logic for providers
 
 ### 2.4 Shared Layer
 
@@ -73,7 +74,7 @@ These utilities provide a foundation for building a more reactive and resilient 
 
 ### 2.8 Path Aliases and Direct Imports
 
-- Barrel files removed; all imports now use direct file paths with path aliases (e.g., @domain/ports/secondary/repositories/position-repository.port)
+- All code and documentation now use direct path aliases (e.g., `@domain/*`, `@adapters/*`). Barrel files are not used in the codebase.
 
 ## 3. Implementation (Pending)
 

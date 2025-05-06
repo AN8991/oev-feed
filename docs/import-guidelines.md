@@ -91,7 +91,10 @@ npx ts-node -r tsconfig-paths/register scripts/your-script.ts
 **Example:**
 
 ```sh
-npx ts-node -r tsconfig-paths/register scripts/test-config.ts
+npx ts-node -r tsconfig-paths/register scripts/test-provider-adapters.ts
+npx ts-node -r tsconfig-paths/register scripts/test-aave-v2-adapter.ts
+npx ts-node -r tsconfig-paths/register scripts/test-aave-v3-adapter.ts
+npx ts-node -r tsconfig-paths/register scripts/test-query-orchestrator.ts
 ```
 
 This ensures all path aliases are resolved as defined in your `tsconfig.json`.

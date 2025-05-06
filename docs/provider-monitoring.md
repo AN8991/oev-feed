@@ -19,7 +19,7 @@ The structured logger (`structured-logger.ts`) provides a consistent logging int
 Usage example:
 
 ```typescript
-import { logger, LogCategory, LogLevel } from '../utils/structured-logger';
+import { logger, LogCategory, LogLevel } from '@infrastructure/utils/structured-logger';
 
 // Basic logging
 logger.info('Provider initialized', LogCategory.PROVIDER, { provider: 'alchemy', network: 'mainnet' });
@@ -59,7 +59,7 @@ Metrics are stored as JSON files in the `metrics` directory and can be accessed 
 Usage example:
 
 ```typescript
-import { metrics, ProviderMetric } from '../utils/metrics-collector';
+import { metrics, ProviderMetric } from '@infrastructure/utils/metrics-collector';
 
 // Record a provider request
 metrics.recordProviderRequest(
@@ -101,7 +101,7 @@ The provider health monitor (`provider-health-monitor.ts`) evaluates and tracks 
 Usage example:
 
 ```typescript
-import { providerHealthMonitor } from '../utils/provider-health-monitor';
+import { providerHealthMonitor } from '@infrastructure/utils/provider-health-monitor';
 
 // Start health monitoring
 providerHealthMonitor.startMonitoring();
@@ -127,7 +127,7 @@ The dashboard service (`dashboard-service.ts`) provides a web-based dashboard fo
 To start the dashboard:
 
 ```typescript
-import { dashboard } from '../utils/dashboard-service';
+import { dashboard } from '@infrastructure/utils/dashboard-service';
 
 // Start the dashboard
 await dashboard.start();
@@ -156,7 +156,7 @@ The `ProviderFactory` uses health information to select the best provider for ea
 A test script is provided to demonstrate the monitoring system:
 
 ```bash
-npm run test:provider-monitoring
+npx ts-node -r tsconfig-paths/register scripts/test-provider-monitoring.ts
 ```
 
 This script:

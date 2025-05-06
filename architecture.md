@@ -100,6 +100,7 @@ The infrastructure layer contains cross-cutting concerns and configuration.
    - request-distributor: Intelligent request routing
    - dashboard-service: Monitoring dashboard
    - data-source-fallback: Data source fallback strategies
+   - **Path Aliases & Direct Imports**: All imports now use direct path aliases (e.g., `@domain/*`, `@adapters/*`), and barrel files have been removed to improve optimization and clarity.
 
 2. **Configuration**
    - Environment-based configuration
@@ -123,6 +124,7 @@ The shared layer contains utilities and types used across all layers.
 - PositionRepository and PositionRepositoryPort added
 - RepositoryFactory exposes all repositories via port interfaces
 - Domain services (e.g., PositionService) depend only on port interfaces, not implementations
+- **Provider Infrastructure**: Provider adapters, provider factory, health monitor, request distributor, structured logger, metrics collector, and dashboard service are fully implemented for Alchemy and Infura.
 
 ### Data Flow Architecture
 
@@ -168,11 +170,13 @@ graph TD
    - Reorganization of types and interfaces
    - Implementation of domain services
    - Implementation of infrastructure utilities (circuit breaker, dashboard, metrics, etc.)
+   - **Enhanced Infrastructure Utilities**: All infrastructure utilities (circuit breaker, retry, error handling, etc.) are fully migrated and integrated with the monitoring dashboard.
 
 2. **In Progress**
    - Protocol adapter implementations for Silo (Arbitrum), Aave (Base)
    - Query orchestration refinement (parallel execution, advanced filtering)
    - API layer improvements (REST, GraphQL, WebSocket)
+   - **Planned**: Additional protocol adapters (Compound, Curve, etc.), enhanced caching, real-time analytics dashboard, and portfolio analytics.
 
 3. **Planned**
    - Additional protocol adapters (Compound, Curve, etc.)
