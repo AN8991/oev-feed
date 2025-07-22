@@ -33,245 +33,186 @@ const AAVE_V3_ETHEREUM_ORACLE = process.env.AAVE_V3_ETHEREUM_ORACLE || '0x54586b
 const ETHEREUM_RPC_URL = process.env.ETHEREUM_RPC_URL || 'https://eth-mainnet.g.alchemy.com/v2/your-api-key';
 
 // Test user address - this should be an address with Aave V3 positions
-const TEST_USER_ADDRESS = process.env.TEST_USER_ADDRESS || '0x54dC6782d6fC5FC05f8486d365186FF25CC44BA7';
+const TEST_USER_ADDRESS = process.env.TEST_USER_ADDRESS || '0x79682489385337996edd00eb56b4238b597bfae7';
 
-type PersistablePosition = PositionModel & { user?: UserEntity };
+type PersistablePosition = PositionModel & { user?: UserEntity | undefined };
 
-async function runAaveV3AdapterTest(): Promise<PositionModel[]> {
-  console.log('runAaveV3AdapterTest: START');
-  try {
-    try {
-      logger.info('Testing Aave V3 Ethereum Adapter');
-      console.log('Running adapter logic...');
-      
-      // Create adapter configuration
-      const config = {
-        poolAddress: AAVE_V3_ETHEREUM_POOL,
-        dataProviderAddress: AAVE_V3_ETHEREUM_DATA_PROVIDER,
-        oracleAddress: AAVE_V3_ETHEREUM_ORACLE,
-        providerUrl: ETHEREUM_RPC_URL
-      };
-      
-      // Create adapter using factory
-      const adapter = ProtocolAdapterFactory.createAdapter('aave-v3', 'ethereum', config);
-      
-      // Initialize adapter
-      logger.info('Initializing adapter...');
-      await adapter.initialize();
-      
-      // Get health factor
-      logger.info(`Getting health factor for user ${TEST_USER_ADDRESS}...`);
-      const healthFactor = await adapter.getHealthFactor(TEST_USER_ADDRESS);
-      logger.info(`Health factor: ${healthFactor}`);
-      
-      // Get user positions
-      logger.info(`Getting positions for user ${TEST_USER_ADDRESS}...`);
-      let positions: PositionModel[] = [];
-      try {
-        positions = await adapter.fetchUserPositions(TEST_USER_ADDRESS);
-        console.log('Fetched positions array:', positions);
-        if (!positions || positions.length === 0) {
-          console.warn('WARNING: No positions returned from adapter for user.');
-        }
-        logger.info(`Found ${positions.length} positions`);
-        console.log('Positions:', positions);
-        // Log position details
-        positions.forEach((position: PositionModel, index: number) => {
-          logger.info(`Position ${index + 1}:`, {
-            assetSymbol: position.assetSymbol,
-            collateralAmount: position.collateralAmount,
-            debtAmount: position.debtAmount,
-            healthFactor: position.healthFactor
-          });
-        });
-      } catch (fetchError) {
-        const e = fetchError as any;
-        logger.error('Error fetching or logging user positions:', e && e.stack ? e.stack : e);
-        console.error('Error fetching or logging user positions:', e && e.stack ? e.stack : e);
-      }
-      
-      // Clean up
-      logger.info('Cleaning up adapter...');
-      await adapter.cleanup();
-      
-      logger.info('Test completed successfully');
-      console.log('Adapter logic complete. Returning positions.');
-      console.log('runAaveV3AdapterTest: END, returning:', positions);
-      return positions;
-    } catch (error) {
-      const e = error as any;
-      console.error('FATAL ERROR in runAaveV3AdapterTest:', e && e.stack ? e.stack : e);
-      return [];
-    }
-  } catch (error) {
-    const e = error as any;
-    console.error('FATAL ERROR in runAaveV3AdapterTest:', e && e.stack ? e.stack : e);
-    return [];
-  }
+/**
+ * Create adapter configuration object
+ */
+function createAdapterConfig() {
+  // Use Alchemy instead of Infura for better reliability
+  const alchemyUrl = `https://eth-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`;
+  
+  return {
+    poolAddress: process.env.AAVE_V3_ETHEREUM_POOL!,
+    dataProviderAddress: process.env.AAVE_V3_ETHEREUM_DATA_PROVIDER!,
+    oracleAddress: process.env.AAVE_V3_ETHEREUM_ORACLE!,
+    providerUrl: alchemyUrl
+  };
 }
 
-console.log('STARTING DIAGNOSTIC SCRIPT');
+/**
+ * Main test function for Aave V3 adapter - With database saving
+ */
+async function testAaveV3Adapter() {
+  let positions: PositionModel[] = [];
+  let user: UserEntity | null = null;
 
-async function testAaveV3AdapterWithDiagnostics() {
-  console.log('Initializing AppDataSource...');
-  try {
-    await AppDataSource.initialize();
-    console.log('AppDataSource initialized.');
-  } catch (err) {
-    const e = err as any;
-    console.error('Error initializing AppDataSource:', e && e.stack ? e.stack : e);
-    return;
-  }
-  let userRepo;
-  try {
-    userRepo = AppDataSource.getRepository(UserEntity);
-    console.log('Got user repository.');
-  } catch (err) {
-    const e = err as any;
-    console.error('Error getting user repository:', e && e.stack ? e.stack : e);
-    if (AppDataSource.isInitialized) await AppDataSource.destroy();
-    return;
-  }
+  console.log('🚀 STARTING AAVE V3 ADAPTER TEST WITH DATABASE SAVE');
+  console.log('Expected from UI:');
+  console.log('- Supplied ETH: 0.0100428 ETH (~$37.08)');
+  console.log('- Borrowed ETH: 0.0020116 ETH (~$7.43)');
+  console.log('\n' + '='.repeat(50));
 
-  // Fetch or create the test user
-  const userAddress = '0xcfC5Ad80a2D19652C253FE098e787dA8913B96c5';
-  let user;
   try {
-    user = await userRepo.findOne({ where: { address: userAddress } });
-    console.log('User lookup complete:', user);
+    console.log('1. Initializing database connection...');
+    if (!AppDataSource.isInitialized) {
+      await AppDataSource.initialize();
+      console.log('   ✅ Database connection initialized');
+    }
+
+    console.log('2. Finding or creating test user...');
+    const userRepo = AppDataSource.getRepository(UserEntity);
+    user = await userRepo.findOne({ where: { address: TEST_USER_ADDRESS } });
+    
     if (!user) {
-      user = userRepo.create({ address: userAddress });
+      user = userRepo.create({ address: TEST_USER_ADDRESS });
       await userRepo.save(user);
-      console.log('Created test user:', user);
+      console.log('   ✅ Test user created:', { address: user.address });
     } else {
-      console.log('Test user already exists:', user);
+      console.log('   ✅ Using existing test user:', { address: user.address, id: user.id });
     }
-  } catch (err) {
-    const e = err as any;
-    console.error('Error during user lookup/save:', e && e.stack ? e.stack : e);
-    if (AppDataSource.isInitialized) await AppDataSource.destroy();
-    return;
-  }
 
-  console.log('User block complete, proceeding to fetch positions...');
+    console.log('3. Creating adapter configuration...');
+    const config = createAdapterConfig();
+    console.log('   Config:', config);
 
-  // Run the original adapter test
-  console.log('Function reference (should not be undefined):', runAaveV3AdapterTest);
-  console.log('About to call runAaveV3AdapterTest...');
-  let positions: PersistablePosition[] = [];
-  try {
-    console.log('ADAPTER TEST: About to create adapter config...');
-    const config = {
-      poolAddress: AAVE_V3_ETHEREUM_POOL,
-      dataProviderAddress: AAVE_V3_ETHEREUM_DATA_PROVIDER,
-      oracleAddress: AAVE_V3_ETHEREUM_ORACLE,
-      providerUrl: ETHEREUM_RPC_URL
-    };
-    console.log('ADAPTER TEST: Config created:', config);
-
-    console.log('ADAPTER TEST: About to create adapter instance...');
+    console.log('4. Creating and initializing adapter...');
     const adapter = ProtocolAdapterFactory.createAdapter('aave-v3', 'ethereum', config);
-    console.log('ADAPTER TEST: Adapter instance created:', adapter);
-
-    console.log('ADAPTER TEST: About to initialize adapter...');
     await adapter.initialize();
-    console.log('ADAPTER TEST: Adapter initialized.');
+    console.log('   ✅ Adapter initialized');
 
-    // Next: test getHealthFactor
-    console.log('ADAPTER TEST: About to get health factor...');
+    console.log('5. Getting health factor...');
     const healthFactor = await adapter.getHealthFactor(TEST_USER_ADDRESS);
-    console.log('ADAPTER TEST: Health factor:', healthFactor);
+    console.log('   ✅ Health factor:', healthFactor);
 
-    // Leave fetchUserPositions commented for now
-    console.log('ADAPTER TEST: About to fetch user positions...');
-    let fetchErrorCaught = false;
-    try {
-      positions = await adapter.fetchUserPositions(TEST_USER_ADDRESS);
-      console.log('ADAPTER TEST: Positions fetched:', positions);
-    } catch (fetchErr) {
-      fetchErrorCaught = true;
-      const e = fetchErr as any;
-      console.error('ADAPTER TEST: ERROR in fetchUserPositions:', e && e.stack ? e.stack : e);
-    }
-    if (!fetchErrorCaught) {
-      console.log('ADAPTER TEST: fetchUserPositions completed without throwing.');
+    console.log('6. Fetching user positions...');
+    console.log('   User address:', TEST_USER_ADDRESS);
+    
+    positions = await adapter.fetchUserPositions(TEST_USER_ADDRESS);
+    
+    console.log('\n' + '='.repeat(50));
+    console.log('POSITION RESULTS:');
+    
+    if (!positions || positions.length === 0) {
+      console.log('❌ NO POSITIONS RETURNED');
+      console.log('This could mean:');
+      console.log('- User has no positions');
+      console.log('- Adapter is not fetching data correctly');
+      console.log('- Network/RPC issues');
+    } else {
+      console.log(`✅ Found ${positions.length} position(s)`);
+      
+      positions.forEach((position, index) => {
+        console.log(`\n--- Position ${index + 1} ---`);
+        console.log('Asset Symbol:', position.assetSymbol);
+        console.log('Collateral Amount:', position.collateralAmount);
+        console.log('Debt Amount:', position.debtAmount);
+        console.log('Health Factor:', position.healthFactor);
+        
+        // ETH comparison
+        if (position.assetSymbol === 'ETH') {
+          console.log('\n🔍 ETH COMPARISON:');
+          const actualSupplied = parseFloat(position.collateralAmount);
+          const actualBorrowed = parseFloat(position.debtAmount);
+          const expectedSupplied = 0.0100428;
+          const expectedBorrowed = 0.0020116;
+          
+          console.log(`Expected Supplied: ${expectedSupplied} | Actual: ${actualSupplied}`);
+          console.log(`Expected Borrowed: ${expectedBorrowed} | Actual: ${actualBorrowed}`);
+          
+          const suppliedDiff = Math.abs(actualSupplied - expectedSupplied);
+          const borrowedDiff = Math.abs(actualBorrowed - expectedBorrowed);
+          
+          console.log(`Supplied Match: ${suppliedDiff < 0.0001 ? '✅' : '❌'} (diff: ${suppliedDiff.toFixed(6)})`);
+          console.log(`Borrowed Match: ${borrowedDiff < 0.0001 ? '✅' : '❌'} (diff: ${borrowedDiff.toFixed(6)})`);
+        }
+      });
+
+      // Save positions to database
+      console.log('\n7. Saving positions to database...');
+      if (user) {
+        const persistablePositions: PersistablePosition[] = positions.map(pos => ({ ...pos, user: user || undefined }));
+        
+        const db: DatabasePort = new TypeORMAdapter();
+        try {
+          await db.savePositions(persistablePositions);
+          console.log(`   ✅ Saved ${positions.length} positions to database`);
+          
+          // Verify the save by querying the database
+          console.log('\n8. Verifying database save...');
+          const positionRepo = AppDataSource.getRepository('PositionEntity');
+          const savedPositions = await positionRepo.find({
+            where: { user: { address: TEST_USER_ADDRESS } },
+            relations: ['user'],
+            order: { lastUpdated: 'DESC' },
+            take: 10
+          });
+          
+          console.log(`   ✅ Found ${savedPositions.length} positions in database for user`);
+          
+          if (savedPositions.length > 0) {
+            console.log('\n📊 DATABASE VERIFICATION:');
+            savedPositions.forEach((dbPos: any, index: number) => {
+              console.log(`   Position ${index + 1}:`);
+              console.log(`     Asset: ${dbPos.assetSymbol}`);
+              console.log(`     Collateral: ${dbPos.collateralAmount}`);
+              console.log(`     Debt: ${dbPos.debtAmount}`);
+              console.log(`     Last Updated: ${dbPos.lastUpdated}`);
+              console.log(`     User ID: ${dbPos.user?.id}`);
+            });
+          }
+          
+        } catch (saveError) {
+          console.error('   ❌ Error saving positions to database:', saveError);
+        }
+      }
     }
 
-  } catch (err) {
-    const e = err as any;
-    console.error('ADAPTER TEST: Error in incremental adapter block:', e && e.stack ? e.stack : e);
-    if (AppDataSource.isInitialized) await AppDataSource.destroy();
-    return;
+    console.log('\n9. Cleaning up adapter...');
+    await adapter.cleanup();
+    console.log('   ✅ Adapter cleanup complete');
+    
+    console.log('\n🎉 TEST COMPLETED SUCCESSFULLY');
+
+  } catch (error) {
+    console.error('\n❌ ERROR in test:', error);
+    if (error instanceof Error && error.stack) {
+      console.error('Stack trace:', error.stack);
+    }
+  } finally {
+    // Clean up database connection
+    if (AppDataSource.isInitialized) {
+      await AppDataSource.destroy();
+      console.log('\n🔌 Database connection closed');
+    }
   }
-
-  if (positions && positions.length > 0) {
-    const persistablePositions: PersistablePosition[] = positions.map(pos => ({ ...pos, user }));
-    // Log positions to be saved
-    console.log('Positions to save:', JSON.stringify(persistablePositions, null, 2));
-    // Save positions
-    const db: DatabasePort = new TypeORMAdapter();
-    try {
-      console.log('Saving positions...');
-      await db.savePositions(persistablePositions);
-      console.log('Saved positions, check DB.');
-    } catch (saveErr) {
-      const e = saveErr as any;
-      console.error('Error saving positions:', e && e.stack ? e.stack : e);
-    }
-  } else {
-    console.log('No positions fetched. Nothing to save.');
-  }
-
-  console.log('Destroying AppDataSource...');
-  if (AppDataSource.isInitialized) await AppDataSource.destroy();
-  console.log('FINISHED DIAGNOSTIC SCRIPT');
-  console.log('End of testAaveV3AdapterWithDiagnostics function.');
 }
 
-(async () => {
-  try {
-    await testAaveV3AdapterWithDiagnostics();
-  } catch (err) {
-    const e = err as any;
-    console.error('Top-level error:', e && e.stack ? e.stack : e);
-    if (AppDataSource.isInitialized) await AppDataSource.destroy();
-  }
-})();
-
-process.on('unhandledRejection', (reason, promise) => {
-  const e = reason as any;
-  console.error('Unhandled Rejection at:', promise, 'reason:', e && e.stack ? e.stack : e);
-});
-
+// Global error handlers
 process.on('uncaughtException', (err) => {
-  const e = err as any;
-  console.error('Uncaught Exception:', e && e.stack ? e.stack : e);
+  logger.error('Uncaught Exception:', err);
+  process.exit(1);
 });
 
-// Minimal test for fetching user positions
-(async () => {
-  try {
-    const adapter = ProtocolAdapterFactory.createAdapter(
-      'aave-v3',
-      'ethereum',
-      {
-        poolAddress: AAVE_V3_ETHEREUM_POOL,
-        dataProviderAddress: AAVE_V3_ETHEREUM_DATA_PROVIDER,
-        oracleAddress: AAVE_V3_ETHEREUM_ORACLE,
-        providerUrl: ETHEREUM_RPC_URL,
-      }
-    );
-    await adapter.initialize();
-    logger.info('Adapter initialized. Fetching user positions...');
-    const positions = await adapter.fetchUserPositions(TEST_USER_ADDRESS);
-    if (!positions || positions.length === 0) {
-      logger.warn('No positions found for user:', TEST_USER_ADDRESS);
-    } else {
-      logger.info('User positions:', positions);
-      console.dir(positions, { depth: null });
-    }
-  } catch (err) {
-    logger.error('Error in test-aave-v3-adapter:', err instanceof Error ? err : new Error(String(err)));
-    console.error('Error in test-aave-v3-adapter:', err);
-  }
-})();
+process.on('unhandledRejection', (reason) => {
+  logger.error('Unhandled Rejection:', reason);
+  process.exit(1);
+});
+
+// Run the test
+testAaveV3Adapter().catch(error => {
+  logger.error('Unhandled error in test script:', error);
+  process.exit(1);
+});

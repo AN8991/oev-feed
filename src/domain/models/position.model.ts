@@ -42,9 +42,9 @@ export interface PositionModel {
   collateralAmount: string;
   
   /**
-   * Collateral amount in ETH value
+   * Collateral amount in USD value
    */
-  collateralAmountETH: string;
+  collateralAmountUSD: string;
   
   /**
    * Debt amount in native token units
@@ -52,9 +52,9 @@ export interface PositionModel {
   debtAmount: string;
   
   /**
-   * Debt amount in ETH value
+   * Debt amount in USD value
    */
-  debtAmountETH: string;
+  debtAmountUSD: string;
   
   /**
    * Health factor as a string

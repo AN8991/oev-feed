@@ -26,25 +26,25 @@ export class PositionEntity {
   @Column()
   assetSymbol!: string;
 
-  @Column({ type: 'bigint' })
+  @Column({ type: 'decimal', precision: 36, scale: 18 })
   collateralAmount!: string;
 
-  @Column({ type: 'bigint' })
-  collateralAmountETH!: string;
+  @Column({ type: 'decimal', precision: 36, scale: 18 })
+  collateralAmountUSD!: string;
 
-  @Column({ type: 'bigint' })
+  @Column({ type: 'decimal', precision: 36, scale: 18 })
   debtAmount!: string;
 
-  @Column({ type: 'bigint' })
-  debtAmountETH!: string;
+  @Column({ type: 'decimal', precision: 36, scale: 18 })
+  debtAmountUSD!: string;
 
-  @Column({ type: 'bigint' })
+  @Column({ type: 'decimal', precision: 10, scale: 6 })
   healthFactor!: string;
 
-  @Column({ type: 'bigint' })
+  @Column({ type: 'decimal', precision: 5, scale: 2 })
   liquidationThreshold!: string;
 
-  @Column({ type: 'bigint' })
+  @Column({ type: 'decimal', precision: 5, scale: 2 })
   ltv!: string;
 
   @Column({ type: 'bigint' })

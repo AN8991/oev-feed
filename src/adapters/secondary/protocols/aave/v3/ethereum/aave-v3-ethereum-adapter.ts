@@ -152,7 +152,6 @@ export class AaveV3EthereumAdapter implements ProtocolAdapterPort {
         try {
           // Get user reserve data
           const reserveData = await this.dataProviderContract!.getUserReserveData(assetAddress, userAddress);
-          console.log(`[AAVE-ADAPTER] reserveData for ${assetAddress}:`, reserveData);
 
           // Get asset symbol and decimals
           let symbol: string = '', decimals: number = 18;
@@ -179,21 +178,55 @@ export class AaveV3EthereumAdapter implements ProtocolAdapterPort {
             continue;
           }
 
-          // Log conversion details
-          console.log(`[AAVE-ADAPTER] Conversion details for ${symbol} (${assetAddress}):`);
-          console.log('  Decimals:', decimals, 'Price:', price);
-          console.log('  aTokenBalance:', reserveData.currentATokenBalance, 'StableDebt:', reserveData.currentStableDebt, 'VariableDebt:', reserveData.currentVariableDebt);
+          // Log conversion details for positions with actual balances
+          console.log(`[AAVE-ADAPTER] Processing ${symbol} position:`);
+          console.log('  aTokenBalance:', reserveData.currentATokenBalance.toString(), 'TotalDebt:', (BigInt(reserveData.currentStableDebt) + BigInt(reserveData.currentVariableDebt)).toString());
 
-          // Construct DTO (simplified for debugging)
-          positionDTOs.push({
+          // Calculate ETH values with proper BigInt arithmetic
+          const priceInWei = BigInt(price); // Oracle price is in 8 decimals
+          const collateralAmountWei = BigInt(reserveData.currentATokenBalance);
+          const stableDebtWei = BigInt(reserveData.currentStableDebt);
+          const variableDebtWei = BigInt(reserveData.currentVariableDebt);
+          const totalDebtWei = stableDebtWei + variableDebtWei;
+          
+          // Convert to ETH values using proper BigInt arithmetic
+          // Formula: (amount * price) / (10^(assetDecimals + priceDecimals))
+          const oracleDecimals = 8n; // Oracle price decimals
+          const assetDecimalsBig = BigInt(decimals);
+          const divisor = 10n ** (assetDecimalsBig + oracleDecimals);
+          
+          const collateralETH = (collateralAmountWei * priceInWei / divisor).toString();
+          const debtETH = (totalDebtWei * priceInWei / divisor).toString();
+          
+          // Extract health factor from account data
+          const healthFactor = accountData.healthFactor ? accountData.healthFactor.toString() : '0';
+          const liquidationThreshold = accountData.currentLiquidationThreshold ? accountData.currentLiquidationThreshold.toString() : '0';
+          const ltv = accountData.ltv ? accountData.ltv.toString() : '0';
+
+          // Construct proper DTO
+          const dto: AavePositionDTO = {
             userAddress,
             assetAddress,
-            symbol,
-            decimals,
-            price,
-            reserveData,
-            accountData
-          } as any);
+            assetSymbol: symbol,
+            assetDecimals: decimals,
+            aTokenBalance: reserveData.currentATokenBalance.toString(),
+            stableDebt: reserveData.currentStableDebt.toString(),
+            variableDebt: reserveData.currentVariableDebt.toString(),
+            principalStableDebt: reserveData.principalStableDebt.toString(),
+            scaledVariableDebt: reserveData.scaledVariableDebt.toString(),
+            collateralETH,
+            debtETH,
+            healthFactor,
+            liquidationThreshold,
+            ltv,
+            protocol: this.PROTOCOL,
+            network: this.NETWORK,
+            version: this.VERSION,
+            lastUpdated: Date.now()
+          };
+          
+          console.log(`[AAVE-ADAPTER] ✅ Created position for ${symbol} - Collateral: ${dto.aTokenBalance}, Debt: ${BigInt(dto.stableDebt) + BigInt(dto.variableDebt)}`);
+          positionDTOs.push(dto);
         } catch (error) {
           console.error(`[AAVE-ADAPTER] Error processing asset ${assetAddress}:`, error);
           failedAssets.push(assetAddress);
@@ -342,7 +375,9 @@ export class AaveV3EthereumAdapter implements ProtocolAdapterPort {
         ['function decimals() view returns (uint8)'],
         this.provider!
       );
-      return await tokenContract.decimals();
+      const decimals = await tokenContract.decimals();
+      // Convert BigInt to number to prevent BigInt/number mixing errors
+      return Number(decimals);
     } catch (error) {
       logger.debug(`Error fetching token decimals for asset ${assetAddress}:`, LogCategory.PROVIDER, error instanceof Error ? error : new Error(String(error)));
       // Return default decimals as fallback

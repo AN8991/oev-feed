@@ -379,23 +379,23 @@ export class QueryOrchestratorService implements QueryOrchestratorPort {
         return false;
       }
 
-      // Collateral amount filtering (in ETH)
+      // Collateral amount filtering (in USD)
       if (filterCriteria.minCollateralAmountETH !== undefined && 
-          parseFloat(position.collateralAmountETH) < filterCriteria.minCollateralAmountETH) {
+          parseFloat(position.collateralAmountUSD) < filterCriteria.minCollateralAmountETH) {
         return false;
       }
       if (filterCriteria.maxCollateralAmountETH !== undefined && 
-          parseFloat(position.collateralAmountETH) > filterCriteria.maxCollateralAmountETH) {
+          parseFloat(position.collateralAmountUSD) > filterCriteria.maxCollateralAmountETH) {
         return false;
       }
 
-      // Debt amount filtering (in ETH)
+      // Debt amount filtering (in USD)
       if (filterCriteria.minDebtAmountETH !== undefined && 
-          parseFloat(position.debtAmountETH) < filterCriteria.minDebtAmountETH) {
+          parseFloat(position.debtAmountUSD) < filterCriteria.minDebtAmountETH) {
         return false;
       }
       if (filterCriteria.maxDebtAmountETH !== undefined && 
-          parseFloat(position.debtAmountETH) > filterCriteria.maxDebtAmountETH) {
+          parseFloat(position.debtAmountUSD) > filterCriteria.maxDebtAmountETH) {
         return false;
       }
 
