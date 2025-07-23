@@ -4,6 +4,8 @@
 
 This document outlines the current project structure. The codebase is organized according to the principles of hexagonal architecture with clear separation between domain, application, adapters, infrastructure, and shared layers.
 
+> **Note:** All imports now use direct path aliases (e.g., `@domain/*`, `@adapters/*`, etc.) and barrel files have been removed for improved optimization and clarity. Update your imports accordingly.
+
 ```
 src/
 │
@@ -12,30 +14,21 @@ src/
 │   │   ├── position.model.ts         # Protocol-agnostic Position model
 │   │   ├── risk.model.ts             # Risk assessment model
 │   │   ├── user.model.ts             # User model
-│   │   └── index.ts
-│   │
 │   ├── services/                     # Domain Services
 │   │   ├── position.service.ts       # Position business logic
 │   │   ├── risk-analysis.service.ts  # Risk analysis logic
 │   │   ├── portfolio.service.ts      # Portfolio management
-│   │   └── index.ts
-│   │
 │   ├── utils/                        # Domain Utilities
 │   │   ├── address-utils.ts          # Address normalization and validation
 │   │   ├── numeric-utils.ts          # Numeric formatting and calculations
 │   │   ├── contract-verification.ts  # Contract verification utilities
-│   │   └── index.ts
-│   │
 │   ├── types/                        # Domain Types
 │   │   ├── data-source-type.ts       # Data source type definitions
-│   │   └── index.ts
-│   │
 │   ├── ports/                        # Ports (Interfaces)
 │   │   ├── primary/                  # Inbound Ports
 │   │   │   ├── position-query.port.ts
 │   │   │   ├── position-command.port.ts
 │   │   │   ├── risk-assessment.port.ts
-│   │   │   └── index.ts
 │   │   ├── secondary/                # Outbound Ports
 │   │   │   ├── protocol-adapter.port.ts
 │   │   │   ├── database.port.ts
@@ -45,32 +38,20 @@ src/
 │   │   │   │   ├── provider-request-repository.port.ts
 │   │   │   │   ├── provider-health-repository.port.ts
 │   │   │   │   ├── position-repository.port.ts
-│   │   │   │   └── index.ts
-│   │   │   └── index.ts
-│   │   └── index.ts
-│   │
 │   ├── enums/                        # Domain Enumerations
 │   │   ├── provider-type.enum.ts     # Provider types
-│   │   └── index.ts
-│   │
 │   └── index.ts
 │
 ├── application/                      # Application Services
 │   ├── services/                     # Application Services
 │   │   ├── query-orchestrator.service.ts # Coordinates protocol queries
-│   │   └── index.ts
-│   │
 │   ├── dto/                          # Data Transfer Objects
 │   │   ├── position.dto.ts           # Position DTOs
 │   │   ├── risk.dto.ts               # Risk DTOs
 │   │   ├── user.dto.ts               # User DTOs
-│   │   └── index.ts
-│   │
 │   ├── mappers/                      # Data Mappers
 │   │   ├── position.mapper.ts        # Position data transformation
 │   │   ├── protocol.mapper.ts        # Protocol data normalization
-│   │   └── index.ts
-│   │
 │   └── index.ts
 │
 ├── adapters/                         # Outer Hexagon - Adapters
@@ -78,25 +59,22 @@ src/
 │   │   ├── rest/                     # REST API (planned)
 │   │   ├── graphql/                  # GraphQL API (planned)
 │   │   ├── websocket/                # WebSocket (planned)
-│   │   └── index.ts
 │   ├── secondary/                    # Secondary (Driven) Adapters
-│   │   ├── providers/                # Provider Adapters (Alchemy, Infura, etc.)
+│   │   ├── providers/                # Provider Adapters
 │   │   │   ├── alchemy-provider.adapter.ts
 │   │   │   ├── infura-provider.adapter.ts
+│   │   │   ├── enhanced-provider.adapter.ts  # Enhanced provider with circuit breaker
 │   │   │   ├── provider-factory.ts
-│   │   │   └── index.ts
-│   │   ├── protocols/                # Protocol Adapters (Aave, Silo, etc.)
+│   │   ├── protocols/                # Protocol Adapters
 │   │   │   ├── aave-v2/
 │   │   │   ├── aave-v3/
 │   │   │   ├── silo/
-│   │   │   └── index.ts
 │   │   ├── database/                 # Database Adapters
 │   │   │   ├── typeorm/              # TypeORM Implementation
 │   │   │   │   ├── entities/         # TypeORM Entities
 │   │   │   │   │   ├── user.entity.ts
 │   │   │   │   │   ├── position.entity.ts
 │   │   │   │   │   ├── oev-opportunity.entity.ts
-│   │   │   │   │   └── index.ts
 │   │   │   │   ├── repositories/     # TypeORM Repositories
 │   │   │   │   │   ├── provider.repository.ts
 │   │   │   │   │   ├── provider-request.repository.ts
@@ -112,17 +90,15 @@ src/
 │   │   ├── config.ts
 │   │   ├── provider-config.ts
 │   │   ├── typeorm.config.ts
-│   │   └── index.ts
 │   ├── utils/                        # Infrastructure utilities
 │   │   ├── circuit-breaker.ts
 │   │   ├── metrics-collector.ts
 │   │   ├── provider-health-monitor.ts
 │   │   ├── structured-logger.ts
 │   │   ├── request-distributor.ts
-│   │   ├── dashboard-service.ts
+│   │   ├── dashboard-service.ts  # Monitoring dashboard
 │   │   ├── data-source-fallback.ts
 │   │   ├── time-range.utils.ts
-│   │   └── index.ts
 │   └── index.ts
 │
 ├── shared/                           # Shared Utilities & Types
@@ -132,10 +108,8 @@ src/
 │   │   ├── exponential-backoff.ts
 │   │   ├── logger.ts (deprecated)
 │   │   ├── rateLimit.ts (deprecated)
-│   │   └── index.ts
 │   ├── types/                        # Shared types
 │   │   ├── winston.d.ts
-│   │   └── index.ts
 │   └── index.ts
 │
 ├── scripts/                          # Migration and utility scripts
