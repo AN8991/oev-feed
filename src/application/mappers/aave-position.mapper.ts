@@ -47,11 +47,11 @@ export class AavePositionMapper {
       network: dto.network ?? 'ethereum',
       assetAddress: dto.assetAddress ?? '',
       assetSymbol: dto.assetSymbol ?? '',
-      collateralAmount: collateralAmount.replace(/\.$/, ''), // Remove trailing dot
+      collateralAmount: collateralAmount.replace(/\.$/, ''), 
       collateralAmountUSD: dto.collateralETH ?? '0',
-      debtAmount: debtAmount.replace(/\.$/, ''), // Remove trailing dot
+      debtAmount: debtAmount.replace(/\.$/, ''),
       debtAmountUSD: dto.debtETH ?? '0',
-      healthFactor: healthFactor.replace(/\.$/, ''), // Remove trailing dot
+      healthFactor: healthFactor.replace(/\.$/, ''),
       liquidationThreshold: dto.liquidationThreshold ?? '0',
       ltv: dto.ltv ?? '0',
       lastUpdated: String(dto.lastUpdated ?? Date.now()),
