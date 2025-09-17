@@ -54,12 +54,14 @@ async function testCompleteFlow() {
       providerUrl: alchemyUrl
     };
 
-    const adapter = ProtocolAdapterFactory.createAdapter('aave-v3', 'ethereum', config);
+    // Note: ProtocolAdapterFactory is now injectable, create instance directly for testing
+    const factory = new ProtocolAdapterFactory();
+    const adapter = factory.createAdapter('aave-v3', 'ethereum', config);
     await adapter.initialize();
     console.log('   ✅ Adapter initialized');
 
     console.log('4. Fetching positions from adapter...');
-    const positions = await adapter.fetchUserPositions(TEST_USER_ADDRESS);
+    const positions = await adapter.fetchUserPositions({ userAddresses: [TEST_USER_ADDRESS] });
     console.log(`   ✅ Fetched ${positions.length} positions`);
 
     if (positions.length === 0) {

@@ -4,11 +4,10 @@
  * Part of the infrastructure layer in hexagonal architecture
  * Provides intelligent request routing to blockchain providers based on various strategies
  */
-
-import { ProviderAdapterPort } from '@domain/ports/secondary/providers/provider-adapter.port';
-import { ProviderType } from '../../domain/enums/provider-type.enum';
-import { metrics, ProviderMetric } from './metrics-collector';
-import { logger, LogCategoryger, LogCategory } from './structured-logger';
+import { Injectable, Logger } from '@nestjs/common';
+import { ProviderFactory } from '@adapters/secondary/providers/provider-factory';
+import { ProviderType } from '@domain/enums/provider-type.enum';
+import { ProviderAdapterPort } from '@domain/ports/secondary/provider-adapter.port';
 
 /**
  * Provider selection strategies
@@ -78,6 +77,8 @@ const DEFAULT_OPTIONS: RequestDistributorOptions = {
  * Request distributor for intelligent request routing
  */
 export class RequestDistributor {
+  private readonly logger = new Logger(RequestDistributor.name);
+  
   /**
    * Current selection strategy
    */
@@ -116,11 +117,7 @@ export class RequestDistributor {
     
     this.strategy = this.options.defaultStrategy;
     
-    logger.info(
-      `Request distributor initialized with strategy: ${this.strategy}`,
-      LogCategory.PROVIDER,
-      { strategy: this.strategy }
-    );
+    this.logger.log(`Request distributor initialized with strategy: ${this.strategy}`);
   }
   
   /**
@@ -131,11 +128,7 @@ export class RequestDistributor {
   public setStrategy(strategy: SelectionStrategy): void {
     this.strategy = strategy;
     
-    logger.info(
-      `Request distributor strategy changed to: ${strategy}`,
-      LogCategory.PROVIDER,
-      { strategy }
-    );
+    this.logger.log(`Request distributor strategy changed to: ${strategy}`);
   }
   
   /**
@@ -158,11 +151,7 @@ export class RequestDistributor {
     // Add provider to excluded set
     this.excludedProviders.get(network)!.add(providerType);
     
-    logger.info(
-      `Excluded provider ${providerType} for network ${network}`,
-      LogCategory.PROVIDER,
-      { providerType, network, temporaryExclusionMs }
-    );
+    this.logger.log(`Excluded provider ${providerType} for network ${network}${temporaryExclusionMs ? ` for ${temporaryExclusionMs}ms` : ''}`);
     
     // If temporary exclusion is specified, schedule re-inclusion
     if (temporaryExclusionMs && temporaryExclusionMs > 0) {
@@ -184,11 +173,7 @@ export class RequestDistributor {
       // Remove provider from excluded set
       this.excludedProviders.get(network)!.delete(providerType);
       
-      logger.info(
-        `Included provider ${providerType} for network ${network}`,
-        LogCategory.PROVIDER,
-        { providerType, network }
-      );
+      this.logger.log(`Included provider ${providerType} for network ${network}`);
     }
   }
   
@@ -235,13 +220,7 @@ export class RequestDistributor {
       // Record selection
       this.lastSelectedProviderType.set(network, type);
 
-      // Record metrics
-      metrics.recordCounter(ProviderMetric.PROVIDER_SELECTION, 1, {
-        network,
-        provider_type: type,
-        strategy: 'single_available',
-        provider_name: provider.getName()
-      });
+      this.logger.debug(`Selected only available provider ${provider.getName()} (${type}) for network ${network}`);
 
       return { provider, type };
     }
@@ -277,24 +256,7 @@ export class RequestDistributor {
     // Record selection
     this.lastSelectedProviderType.set(network, type);
 
-    // Record metrics
-    metrics.recordCounter(ProviderMetric.PROVIDER_SELECTION, 1, {
-      network,
-      provider_type: type,
-      strategy: this.strategy,
-      provider_name: provider.getName()
-    });
-
-    logger.debug(
-      `Selected provider ${provider.getName()} (${type}) for network ${network} using strategy ${this.strategy}`,
-      LogCategory.PROVIDER,
-      {
-        network,
-        provider: provider.getName(),
-        providerType: type,
-        strategy: this.strategy
-      }
-    );
+    this.logger.debug(`Selected provider ${provider.getName()} (${type}) for network ${network} using strategy ${this.strategy}`);
 
     return { provider, type };
   }
@@ -430,5 +392,6 @@ export class RequestDistributor {
   }
 }
 
-// Export singleton instance
-export const requestDistributor = new RequestDistributor();
+// Note: RequestDistributor is now an injectable service
+// Use dependency injection to get an instance instead of singleton export
+// This singleton export has been removed to enforce proper DI usage

@@ -1,6 +1,8 @@
 import 'dotenv/config';
 import 'reflect-metadata';
-import { AppDataSource } from '../src/infrastructure/config/typeorm.config';
+import { DataSource } from 'typeorm';
+import { PositionEntity } from '../../src/adapters/secondary/database/typeorm/entities/position.entity';
+import { UserEntity } from '../../src/adapters/secondary/database/typeorm/entities/user.entity';
 
 /**
  * Query the most recent positions data from the database
@@ -9,15 +11,25 @@ async function queryRecentPositions() {
   console.log('🔍 QUERYING RECENT POSITIONS FROM DATABASE');
   console.log('=' .repeat(50));
 
+  const dataSource = new DataSource({
+    type: 'postgres',
+    host: process.env.DB_HOST || 'localhost',
+    port: parseInt(process.env.DB_PORT || '5432'),
+    username: process.env.DB_USERNAME || 'postgres',
+    password: process.env.DB_PASSWORD || 'password',
+    database: process.env.DB_NAME || 'oev_feed',
+    entities: [PositionEntity, UserEntity],
+    synchronize: false,
+    logging: false,
+  });
+
   try {
     console.log('1. Connecting to database...');
-    if (!AppDataSource.isInitialized) {
-      await AppDataSource.initialize();
-      console.log('   ✅ Database connected');
-    }
+    await dataSource.initialize();
+    console.log('   ✅ Database connected');
 
     console.log('2. Querying recent positions...');
-    const positionRepo = AppDataSource.getRepository('PositionEntity');
+    const positionRepo = dataSource.getRepository(PositionEntity);
     
     // Get the 10 most recent positions
     const recentPositions = await positionRepo.find({
@@ -80,10 +92,8 @@ async function queryRecentPositions() {
   } catch (error) {
     console.error('❌ Error querying database:', error);
   } finally {
-    if (AppDataSource.isInitialized) {
-      await AppDataSource.destroy();
-      console.log('\n🔌 Database connection closed');
-    }
+    await dataSource.destroy();
+    console.log('\n🔌 Database connection closed');
   }
 }
 

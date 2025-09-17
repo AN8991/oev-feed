@@ -1,14 +1,11 @@
 // Provider factory for creating and managing blockchain providers
+import { Injectable, Logger } from '@nestjs/common';
 import { ProviderAdapterPort } from '@domain/ports/secondary/provider-adapter.port';
 import { AlchemyProviderAdapter, AlchemyProviderConfig } from './alchemy-provider.adapter';
 import { InfuraProviderAdapter, InfuraProviderConfig } from './infura-provider.adapter';
 import { EnhancedProviderAdapter } from './enhanced-provider.adapter';
-import { DatabaseProviderAdapter } from './database-provider.adapter';
-import { logger, LogCategory } from '@infrastructure/utils/structured-logger';
-import { metrics, ProviderMetric } from '@infrastructure/utils/metrics-collector';
 import { ProviderConfigService } from '@infrastructure/config/provider-config';
-import { requestDistributor, SelectionStrategy } from '@infrastructure/utils/request-distributor';
-import { DatabaseService } from '../../../domain/services/database/database.service';
+import { RequestDistributor, SelectionStrategy } from '@infrastructure/utils/request-distributor';
 import { ProviderType } from '@domain/enums/provider-type.enum';
 
 /**
@@ -30,45 +27,42 @@ export interface ProviderOptions {
    */
   config?: Record<string, any>;
 
-  /**
-   * Whether to use database persistence for provider metrics
-   */
-  useDatabasePersistence?: boolean;
 }
 
 /**
- * Provider factory class
+ * Provider factory service
  * Responsible for creating and managing provider instances
  */
+@Injectable()
 export class ProviderFactory {
   /**
    * Provider cache
    * Maps network name and provider type to provider instance
    */
-  private static providerCache: Map<string, Map<ProviderType, ProviderAdapterPort>> = new Map();
+  private readonly providerCache: Map<string, Map<ProviderType, ProviderAdapterPort>> = new Map();
   
   /**
    * Provider priority for fallback
    */
-  private static providerPriority: ProviderType[] = [];
+  private providerPriority: ProviderType[] = [];
   
   /**
-   * Configuration service instance
+   * Logger instance
    */
-  private static configService: ProviderConfigService = ProviderConfigService.getInstance();
+  private readonly logger = new Logger(ProviderFactory.name);
   
   /**
-   * Initialize the provider factory
+   * Constructor with dependency injection
    */
-  public static initialize(): void {
-    // Load configuration from environment variables
-    this.configService.loadFromEnv();
-    
+  constructor(
+    private readonly configService: ProviderConfigService,
+    private readonly requestDistributor: RequestDistributor
+  ) {
     // Set provider priority from configuration
     this.providerPriority = this.configService.getProviderPriority();
     
-    logger.info('Provider factory initialized', LogCategory.GENERAL);
-    logger.debug('Provider priority set', LogCategory.GENERAL, { priority: this.providerPriority });
+    this.logger.log('Provider factory initialized');
+    this.logger.debug('Provider priority set', { priority: this.providerPriority });
   }
   
   /**
@@ -77,11 +71,11 @@ export class ProviderFactory {
    * @param options Provider options
    * @returns Provider instance
    */
-  public static async getProvider(
+  public async getProvider(
     network: string,
     options: ProviderOptions = {}
   ): Promise<ProviderAdapterPort> {
-    const { type, fallback = true, config = {}, useDatabasePersistence = false } = options;
+    const { type, fallback = true, config = {} } = options;
     
     // Normalize network name
     const normalizedNetwork = network.toLowerCase();
@@ -102,7 +96,7 @@ export class ProviderFactory {
     
     try {
       // Create provider
-      const provider = this.createProvider(providerType, normalizedNetwork, config, useDatabasePersistence);
+      const provider = this.createProvider(providerType, normalizedNetwork, config);
       
       // Initialize provider
       await provider.initialize();
@@ -114,9 +108,9 @@ export class ProviderFactory {
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       
-      logger.error(
+      this.logger.error(
         `Failed to create ${providerType} provider for ${normalizedNetwork}:`, 
-        LogCategory.PROVIDER, 
+         
         { 
           network: normalizedNetwork, 
           providerType 
@@ -126,7 +120,7 @@ export class ProviderFactory {
       
       // If fallback is enabled, try alternative providers
       if (fallback) {
-        return this.getFallbackProvider(normalizedNetwork, providerType, config, useDatabasePersistence);
+        return this.getFallbackProvider(normalizedNetwork, providerType, config);
       }
       
       throw new Error(`Failed to get provider for ${normalizedNetwork}: ${errorMsg}`);
@@ -138,7 +132,7 @@ export class ProviderFactory {
    * @param network Network name
    * @returns Best provider instance
    */
-  public static async getBestProvider(network: string): Promise<ProviderAdapterPort> {
+  public async getBestProvider(network: string): Promise<ProviderAdapterPort> {
     // Normalize network name
     const normalizedNetwork = network.toLowerCase();
     
@@ -176,10 +170,9 @@ export class ProviderFactory {
         const isHealthy = await provider.isHealthy();
         
         if (!isHealthy) {
-          logger.warn(
+          this.logger.warn(
             `Provider ${provider.name} is not healthy, skipping`,
-            LogCategory.PROVIDER,
-            { provider: provider.name, network: normalizedNetwork }
+                        { provider: provider.name, network: normalizedNetwork }
           );
           continue;
         }
@@ -228,10 +221,9 @@ export class ProviderFactory {
         
         providerScores.push({ provider, score, type });
         
-        logger.debug(
+        this.logger.debug(
           `Provider ${provider.name} score: ${score}`,
-          LogCategory.PROVIDER,
-          { 
+                    { 
             provider: provider.name, 
             network: normalizedNetwork, 
             score,
@@ -245,10 +237,9 @@ export class ProviderFactory {
           }
         );
       } catch (error) {
-        logger.error(
+        this.logger.error(
           `Failed to score provider ${provider.name}:`,
-          LogCategory.PROVIDER,
-          { provider: provider.name, network: normalizedNetwork },
+                    { provider: provider.name, network: normalizedNetwork },
           error instanceof Error ? error : new Error(String(error))
         );
       }
@@ -263,10 +254,9 @@ export class ProviderFactory {
     
     // Log the selected provider
     const selected = providerScores[0];
-    logger.info(
+    this.logger.log(
       `Selected best provider ${selected.provider.name} for ${normalizedNetwork} with score ${selected.score}`,
-      LogCategory.PROVIDER,
-      { 
+            { 
         provider: selected.provider.name, 
         network: normalizedNetwork, 
         score: selected.score,
@@ -286,7 +276,7 @@ export class ProviderFactory {
    * @param network Network name
    * @returns Map of provider type to provider instance
    */
-  public static async getAllProviders(network: string): Promise<Map<ProviderType, ProviderAdapterPort>> {
+  public async getAllProviders(network: string): Promise<Map<ProviderType, ProviderAdapterPort>> {
     // Normalize network name
     const normalizedNetwork = network.toLowerCase();
     
@@ -333,10 +323,9 @@ export class ProviderFactory {
         
         providers.set(type, provider);
       } catch (error) {
-        logger.error(
+        this.logger.error(
           `Failed to create provider ${type} for ${normalizedNetwork}:`,
-          LogCategory.PROVIDER,
-          { providerType: type, network: normalizedNetwork },
+                    { providerType: type, network: normalizedNetwork },
           error instanceof Error ? error : new Error(String(error))
         );
       }
@@ -349,24 +338,23 @@ export class ProviderFactory {
    * Set provider priority for fallback
    * @param priority Provider priority array
    */
-  public static setProviderPriority(priority: ProviderType[]): void {
+  public setProviderPriority(priority: ProviderType[]): void {
     this.providerPriority = [...priority];
   }
   
   /**
    * Clear provider cache
    */
-  public static clearCache(): void {
+  public clearCache(): void {
     // Clean up resources for each provider
     for (const [network, providers] of this.providerCache.entries()) {
       for (const [type, provider] of providers.entries()) {
         try {
           provider.cleanup();
         } catch (error) {
-          logger.error(
+          this.logger.error(
             `Failed to clean up provider ${provider.name}:`,
-            LogCategory.PROVIDER,
-            { provider: provider.name, network },
+                        { provider: provider.name, network },
             error instanceof Error ? error : new Error(String(error))
           );
         }
@@ -376,7 +364,7 @@ export class ProviderFactory {
     // Clear cache
     this.providerCache.clear();
     
-    logger.info('Provider cache cleared', LogCategory.PROVIDER);
+    this.logger.log('Provider cache cleared');
   }
   
   /**
@@ -385,7 +373,7 @@ export class ProviderFactory {
    * @param type Provider type
    * @returns Cached provider or undefined if not found
    */
-  private static getCachedProvider(
+  private getCachedProvider(
     network: string,
     type: ProviderType
   ): ProviderAdapterPort | undefined {
@@ -404,7 +392,7 @@ export class ProviderFactory {
    * @param type Provider type
    * @param provider Provider instance
    */
-  private static cacheProvider(
+  private cacheProvider(
     network: string,
     type: ProviderType,
     provider: ProviderAdapterPort
@@ -424,14 +412,12 @@ export class ProviderFactory {
    * @param type Provider type
    * @param network Network name
    * @param config Provider configuration
-   * @param useDatabasePersistence Whether to use database persistence for provider metrics
    * @returns Provider instance
    */
-  private static createProvider(
+  private createProvider(
     type: ProviderType,
     network: string,
-    config: Record<string, any> = {},
-    useDatabasePersistence: boolean = false
+    config: Record<string, any> = {}
   ): ProviderAdapterPort {
     // Merge default config with provided config
     const mergedConfig = {
@@ -457,12 +443,6 @@ export class ProviderFactory {
     // Enhance provider with circuit breaker and retry logic
     const enhancedProvider = new EnhancedProviderAdapter(baseProvider);
     
-    // If database persistence is enabled, wrap with database provider adapter
-    if (useDatabasePersistence) {
-      const dbService = new DatabaseService();
-      return new DatabaseProviderAdapter(enhancedProvider, dbService, network);
-    }
-    
     return enhancedProvider;
   }
   
@@ -471,14 +451,12 @@ export class ProviderFactory {
    * @param network Network name
    * @param excludeType Provider type to exclude
    * @param config Additional configuration
-   * @param useDatabasePersistence Whether to use database persistence for provider metrics
    * @returns Fallback provider instance
    */
-  private static async getFallbackProvider(
+  private async getFallbackProvider(
     network: string,
     excludeType: ProviderType,
-    config: Record<string, any> = {},
-    useDatabasePersistence: boolean = false
+    config: Record<string, any> = {}
   ): Promise<ProviderAdapterPort> {
     // Get network configuration
     const networkConfig = this.configService.getNetwork(network);
@@ -531,34 +509,24 @@ export class ProviderFactory {
           const isHealthy = await cachedProvider.isHealthy();
           
           if (isHealthy) {
-            logger.info(
+            this.logger.log(
               `Using cached fallback provider ${type} for ${network}`,
-              LogCategory.PROVIDER,
-              { network, fromType: excludeType, toType: type }
+                            { network, fromType: excludeType, toType: type }
             );
             
-            // Record fallback metric
-            metrics.recordProviderFallback(
-              excludeType,
-              excludeType,
-              cachedProvider.name,
-              type,
-              network,
-              'primary_provider_failed'
-            );
+            // TODO: Record fallback metric with new metrics system
             
             return cachedProvider;
           }
           
-          logger.warn(
+          this.logger.warn(
             `Cached fallback provider ${type} for ${network} is unhealthy, creating new instance`,
-            LogCategory.PROVIDER,
-            { network, providerType: type }
+                        { network, providerType: type }
           );
         }
         
         // Create provider
-        const provider = this.createProvider(type, network, config, useDatabasePersistence);
+        const provider = this.createProvider(type, network, config);
         
         // Initialize provider
         await provider.initialize();
@@ -566,28 +534,18 @@ export class ProviderFactory {
         // Cache provider
         this.cacheProvider(network, type, provider);
         
-        logger.info(
+        this.logger.log(
           `Using fallback provider ${type} for ${network}`,
-          LogCategory.PROVIDER,
-          { network, fromType: excludeType, toType: type }
+                    { network, fromType: excludeType, toType: type }
         );
         
-        // Record fallback metric
-        metrics.recordProviderFallback(
-          excludeType,
-          excludeType,
-          provider.name,
-          type,
-          network,
-          'primary_provider_failed'
-        );
+        // TODO: Record fallback metric with new metrics system
         
         return provider;
       } catch (error) {
-        logger.error(
+        this.logger.error(
           `Failed to create fallback provider ${type} for ${network}:`,
-          LogCategory.PROVIDER,
-          { network, providerType: type },
+                    { network, providerType: type },
           error instanceof Error ? error : new Error(String(error))
         );
       }
@@ -601,7 +559,7 @@ export class ProviderFactory {
    * @param network Network name
    * @returns Default provider type
    */
-  private static getDefaultProviderType(network: string): ProviderType {
+  private getDefaultProviderType(network: string): ProviderType {
     // Get network configuration
     const networkConfig = this.configService.getNetwork(network);
     
@@ -623,7 +581,7 @@ export class ProviderFactory {
    * Get all available networks
    * @returns Array of network names
    */
-  public static getAvailableNetworks(): string[] {
+  public getAvailableNetworks(): string[] {
     return this.configService.getNetworkNames();
   }
   
@@ -631,7 +589,7 @@ export class ProviderFactory {
    * Get all provider types
    * @returns Object with provider types
    */
-  public static getProviderTypes(): typeof ProviderType {
+  public getProviderTypes(): typeof ProviderType {
     return ProviderType;
   }
   
@@ -640,7 +598,7 @@ export class ProviderFactory {
    * @param network Network name
    * @returns Object mapping provider type to provider instance (or undefined)
    */
-  public static getProvidersForNetwork(network: string): Record<string, ProviderAdapterPort | undefined> {
+  public getProvidersForNetwork(network: string): Record<string, ProviderAdapterPort | undefined> {
     const normalizedNetwork = network.toLowerCase();
     const providersMap = this.providerCache.get(normalizedNetwork);
     const result: Record<string, ProviderAdapterPort | undefined> = {};
@@ -655,5 +613,4 @@ export class ProviderFactory {
 
 export { ProviderType };
 
-// Initialize provider factory
-ProviderFactory.initialize();
+// Note: Provider factory will be initialized by the application module

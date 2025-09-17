@@ -17,11 +17,10 @@ export enum Network {
   ETHEREUM = 'ethereum',
 }
 
-// Enumeration of supported network providers
-export enum NetworkProvider {
-  INFURA = 'infura',
-  ALCHEMY = 'alchemy',
-}
+import { ProviderType } from '../enums/provider-type.enum';
+
+// Use the domain ProviderType enum instead of duplicating
+export { ProviderType as NetworkProvider };
 
 // Detailed configuration for a specific blockchain network
 export interface NetworkConfig {
@@ -37,28 +36,66 @@ export interface NetworkConfig {
   };
 }
 
-// Import from provider URLs (this import will need to be updated when migrating other files)
-import { ProviderUrls } from '../../adapters/secondary/providers/provider-urls';
+import { ProviderConfigService } from '../../infrastructure/config/provider-config';
 
 // Generate network configuration dynamically based on provider settings
+// NOTE: This function is deprecated and should be replaced with dependency injection
+// For now, it uses environment variables directly to avoid singleton pattern
 export function getNetworkConfig(
   network: Network, 
-  provider: NetworkProvider = NetworkProvider.INFURA
+  provider: ProviderType = ProviderType.INFURA
 ): NetworkConfig {
-  // Retrieve network-specific URLs from provider manager
-  const getProviderUrls = (provider: NetworkProvider) => {
-    const apiKey = provider === NetworkProvider.INFURA 
-      ? process.env.INFURA_API_KEY 
-      : process.env.ALCHEMY_API_KEY;
+  // Retrieve network-specific URLs from environment variables directly
+  const getProviderUrls = (provider: ProviderType) => {
+    const networkName = network.toLowerCase();
     
-    if (!apiKey) {
-      throw new Error(`API key not found for provider: ${provider}`);
+    try {
+      // Get API keys from environment variables
+      let apiKey: string | undefined;
+      let baseUrl: string;
+      
+      switch (provider) {
+        case ProviderType.ALCHEMY:
+          apiKey = process.env.ALCHEMY_API_KEY;
+          baseUrl = networkName === 'ethereum' 
+            ? 'https://eth-mainnet.alchemyapi.io/v2/' 
+            : `https://eth-${networkName}.alchemyapi.io/v2/`;
+          break;
+        case ProviderType.INFURA:
+          apiKey = process.env.INFURA_API_KEY;
+          baseUrl = networkName === 'ethereum' 
+            ? 'https://mainnet.infura.io/v3/' 
+            : `https://${networkName}.infura.io/v3/`;
+          break;
+        default:
+          throw new Error(`Unsupported provider: ${provider}`);
+      }
+      
+      if (!apiKey) {
+        throw new Error(`API key not found for provider ${provider}. Please set the appropriate environment variable.`);
+      }
+      
+      // Build URLs based on provider type
+      let httpUrl: string;
+      let wsUrl: string;
+      
+      switch (provider) {
+        case ProviderType.ALCHEMY:
+          httpUrl = `${baseUrl}${apiKey}`;
+          wsUrl = baseUrl.replace('https://', 'wss://') + apiKey;
+          break;
+        case ProviderType.INFURA:
+          httpUrl = `${baseUrl}${apiKey}`;
+          wsUrl = baseUrl.replace('https://', 'wss://').replace('/v3/', '/ws/v3/') + apiKey;
+          break;
+        default:
+          throw new Error(`Unsupported provider: ${provider}`);
+      }
+      
+      return { http: httpUrl, ws: wsUrl };
+    } catch (error) {
+      throw new Error(`Failed to get provider URLs for ${provider} on ${network}: ${error instanceof Error ? error.message : String(error)}`);
     }
-    
-    return {
-      http: ProviderUrls.getHttpUrl(network, provider, apiKey),
-      ws: ProviderUrls.getWsUrl(network, provider, apiKey)
-    };
   };
 
   // Base network configuration without URLs

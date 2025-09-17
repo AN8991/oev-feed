@@ -1,11 +1,13 @@
 # OEV Feed Architecture
 
 ## Project Overview
-The OEV Feed project is a DeFi data feed service focused on tracking and monitoring user positions across various DeFi protocols, with a current focus on Aave V2 and V3. The system provides real-time position data including collateral, debt, and health factors for DeFi users.
+The OEV Feed project is a DeFi data feed service focused on tracking and monitoring user positions across various DeFi protocols. The system provides real-time position data including collateral, debt, and health factors for DeFi users.
+
+> **Status:** ✅ **Fully Operational** - NestJS application with complete REST API, risk assessment system, and database integration.
 
 ### Current Architecture (Hexagonal Architecture)
 
-The project has now been built as a **Hexagonal (Ports and Adapters) Architecture** with clear boundaries between core business logic and external systems.
+The project is built as a **Hexagonal (Ports and Adapters) Architecture** with clear boundaries between core business logic and external systems, implemented using **NestJS framework** with **TypeORM** for database operations.
 
 #### Core Benefits of Hexagonal Architecture for OEV Feed
 
@@ -93,14 +95,11 @@ Adapters implement outbound ports and connect the domain to infrastructure (data
 The infrastructure layer contains cross-cutting concerns and configuration.
 
 1. **Utilities**
-   - circuit-breaker: Resilience-related functionality
-   - metrics-collector: Metrics collection and reporting
-   - provider-health-monitor: Monitoring blockchain provider health
-   - structured-logger: Structured logging capabilities
-   - request-distributor: Intelligent request routing
-   - dashboard-service: Monitoring dashboard
-   - data-source-fallback: Data source fallback strategies
+   - provider-health-monitor: Monitoring blockchain provider health (uses NestJS Logger)
+   - request-distributor: Intelligent request routing (uses NestJS Logger)
+   - data-source-fallback: Data source fallback strategies (uses NestJS Logger)
    - **Path Aliases & Direct Imports**: All imports now use direct path aliases (e.g., `@domain/*`, `@adapters/*`), and barrel files have been removed to improve optimization and clarity.
+   - **Legacy Components Removed**: circuit-breaker, metrics-collector, structured-logger, and dashboard-service have been removed in favor of NestJS built-in Logger and simplified implementations.
 
 2. **Configuration**
    - Environment-based configuration
@@ -124,7 +123,8 @@ The shared layer contains utilities and types used across all layers.
 - PositionRepository and PositionRepositoryPort added
 - RepositoryFactory exposes all repositories via port interfaces
 - Domain services (e.g., PositionService) depend only on port interfaces, not implementations
-- **Provider Infrastructure**: Provider adapters, provider factory, health monitor, request distributor, structured logger, metrics collector, and dashboard service are fully implemented for Alchemy and Infura.
+- **Provider Infrastructure**: Provider adapters, provider factory, health monitor, and request distributor are fully implemented for Alchemy and Infura.
+- **Logger Refactoring**: Replaced all legacy structured logging and metrics systems with NestJS built-in Logger across all components including protocol adapters, provider adapters, infrastructure utilities, and application services.
 
 ### Data Flow Architecture
 
@@ -163,23 +163,24 @@ graph TD
 
 ## Implementation Status
 
-1. **Completed**
-   - Provider adapters (Alchemy, Infura) and provider factory with fallback and health monitoring
-   - Migration of utility functions to appropriate layers
-   - Removal of redundant compatibility layers
-   - Reorganization of types and interfaces
-   - Implementation of domain services
-   - Implementation of infrastructure utilities (circuit breaker, dashboard, metrics, etc.)
-   - **Enhanced Infrastructure Utilities**: All infrastructure utilities (circuit breaker, retry, error handling, etc.) are fully migrated and integrated with the monitoring dashboard.
+### ✅ **Completed & Operational**
+   - **NestJS Application**: Fully functional with dependency injection
+   - **REST API Controllers**: All endpoints working (positions, providers, events, risk-assessment)
+   - **Domain Services**: RiskAnalysisService, ProvidersService, EventsService, PositionsService
+   - **Database Integration**: TypeORM with PostgreSQL, all entities configured
+   - **Configuration Services**: HttpConfigService, AppConfigService with validation
+   - **DTO Mapping**: Entity-to-DTO transformations working
+   - **Risk Assessment System**: Complete risk calculation with RiskCalculator utility
 
-2. **In Progress**
-   - Protocol adapter implementations for Silo (Arbitrum), Aave (Base)
-   - Query orchestration refinement (parallel execution, advanced filtering)
-   - API layer improvements (REST, GraphQL, WebSocket)
-   - **Planned**: Additional protocol adapters (Compound, Curve, etc.), enhanced caching, real-time analytics dashboard, and portfolio analytics.
+### 🔄 **Available for Development**
+   - Protocol adapter implementations (Aave V2/V3 adapters exist but need integration)
+   - Data fetching from DeFi protocols
+   - Database schema population
+   - WebSocket real-time updates
+   - GraphQL API layer
 
-3. **Planned**
-   - Additional protocol adapters (Compound, Curve, etc.)
+### 📋 **Planned**
+   - Additional protocol adapters (Compound, Curve, Silo)
    - Enhanced caching strategy and performance optimizations
    - Real-time update system and analytics dashboard
 
@@ -207,7 +208,7 @@ graph TD
 - **Infrastructure**: 
   - Alchemy/Infura for RPC
   - Environment-based configuration
-  - Structured logging with Winston
+  - NestJS built-in Logger for all logging operations
 
 ### TypeORM Benefits
 

@@ -1,6 +1,6 @@
 // TypeORM entity for User
-import { Entity, PrimaryGeneratedColumn, Column, OneToMany } from 'typeorm';
-import { PositionEntity } from '@adapters/secondary/database/typeorm/entities/position.entity';
+import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
+// import { PositionEntity } from './position.entity';
 
 @Entity('users')
 export class UserEntity {
@@ -10,7 +10,7 @@ export class UserEntity {
   @Column({ unique: true })
   address!: string;
 
-  // Example relation to positions (optional, but common)
-  @OneToMany(() => PositionEntity, position => position.user, { cascade: true })
-  positions?: PositionEntity[];
+  // Temporarily commented out to resolve circular dependency
+  // @OneToMany(() => PositionEntity, position => position.user, { cascade: true })
+  // positions?: PositionEntity[];
 }

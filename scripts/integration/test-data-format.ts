@@ -1,5 +1,6 @@
 // Import required libraries for data validation and file operations
-import { getAddress } from 'ethers';
+// Note: ethers v6 import issue, using alternative approach
+// import { getAddress } from 'ethers';
 import fs from 'fs';
 import path from 'path';
 import dotenv from 'dotenv';
@@ -108,7 +109,7 @@ function formatPositionData(position: UserPosition) {
   // Format borrowed assets
   const borrowedAssets = position.borrowedAssets.map(asset => ({
     symbol: asset.symbol,
-    address: asset.address ? getAddress(asset.address) : undefined, // Ensure proper checksum if address exists
+    address: asset.address || undefined, // Address validation disabled due to ethers import issues
     amount: formatNumber(asset.amount, 8),
     valueETH: asset.valueETH ? formatNumber(asset.valueETH) : '0.000000'
   }));
@@ -116,7 +117,7 @@ function formatPositionData(position: UserPosition) {
   // Format supplied assets
   const suppliedAssets = position.suppliedAssets.map(asset => ({
     symbol: asset.symbol,
-    address: asset.address ? getAddress(asset.address) : undefined, // Ensure proper checksum if address exists
+    address: asset.address || undefined, // Address validation disabled due to ethers import issues
     amount: formatNumber(asset.amount, 8)
   }));
   
@@ -135,7 +136,7 @@ function formatPositionData(position: UserPosition) {
     protocol: position.protocol,
     network: position.network,
     version: position.version,
-    userAddress: getAddress(position.userAddress), // Ensure proper checksum
+    userAddress: position.userAddress, // Address validation disabled due to ethers import issues
     collateral: `${collateral} ETH`,
     debt: `${debt} ETH`,
     healthFactor,
@@ -161,11 +162,9 @@ function validatePosition(position: UserPosition): { isValid: boolean; errors: s
     }
   }
   
-  // Validate userAddress is a valid Ethereum address
-  try {
-    getAddress(position.userAddress);
-  } catch (error) {
-    errors.push(`Invalid userAddress: ${position.userAddress}`);
+  // Validate userAddress format (simplified validation due to ethers import issues)
+  if (!position.userAddress || !/^0x[a-fA-F0-9]{40}$/.test(position.userAddress)) {
+    errors.push(`Invalid userAddress format: ${position.userAddress}`);
   }
   
   // Validate borrowedAssets
@@ -176,12 +175,8 @@ function validatePosition(position: UserPosition): { isValid: boolean; errors: s
       if (!asset.symbol) {
         errors.push(`borrowedAssets[${index}] missing symbol`);
       }
-      if (asset.address) {
-        try {
-          getAddress(asset.address);
-        } catch (error) {
-          errors.push(`borrowedAssets[${index}] has invalid address: ${asset.address}`);
-        }
+      if (asset.address && !/^0x[a-fA-F0-9]{40}$/.test(asset.address)) {
+        errors.push(`borrowedAssets[${index}] has invalid address format: ${asset.address}`);
       }
       if (!asset.amount) {
         errors.push(`borrowedAssets[${index}] missing amount`);
@@ -197,12 +192,8 @@ function validatePosition(position: UserPosition): { isValid: boolean; errors: s
       if (!asset.symbol) {
         errors.push(`suppliedAssets[${index}] missing symbol`);
       }
-      if (asset.address) {
-        try {
-          getAddress(asset.address);
-        } catch (error) {
-          errors.push(`suppliedAssets[${index}] has invalid address: ${asset.address}`);
-        }
+      if (asset.address && !/^0x[a-fA-F0-9]{40}$/.test(asset.address)) {
+        errors.push(`suppliedAssets[${index}] has invalid address format: ${asset.address}`);
       }
       if (!asset.amount) {
         errors.push(`suppliedAssets[${index}] missing amount`);

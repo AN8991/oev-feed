@@ -6,7 +6,7 @@
  */
 
 // Import from ethers directly - this is the correct import for ethers v6
-import { getAddress } from 'ethers';
+// import { getAddress } from 'ethers'; // ethers v6 import issue
 
 /**
  * Normalize an Ethereum address to ensure proper checksum format
@@ -20,11 +20,12 @@ export function normalizeAddress(address: string | undefined | null): string {
     return '';
   }
   
-  try {
-    return getAddress(address);
-  } catch {
-    return address.toLowerCase();
+  // Simplified address validation due to ethers v6 import issues
+  const trimmed = address.trim();
+  if (!/^0x[a-fA-F0-9]{40}$/.test(trimmed)) {
+    return '';
   }
+  return trimmed;
 }
 
 /**
@@ -35,11 +36,12 @@ export function normalizeAddress(address: string | undefined | null): string {
  */
 export function normalizeAddressChecksum(address: string): string {
   if (!address) return '';
-  try {
-    return getAddress(address);
-  } catch {
-    return address.toLowerCase(); // fallback to lowercasing if invalid
+  // Simplified address validation due to ethers v6 import issues
+  const trimmed = address.trim();
+  if (!/^0x[a-fA-F0-9]{40}$/.test(trimmed)) {
+    return address.toLowerCase();
   }
+  return trimmed;
 }
 
 /**

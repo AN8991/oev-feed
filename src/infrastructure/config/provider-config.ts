@@ -1,5 +1,8 @@
 /// <reference types="node" />
-import { ProviderType } from '../../adapters/secondary/providers/provider-factory';
+import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { validate } from 'class-validator';
+import { ProviderType } from '@domain/enums/provider-type.enum';
 
 /**
  * Provider configuration interface
@@ -129,16 +132,14 @@ export interface GlobalProviderConfig {
 /**
  * Provider configuration service
  */
-export class ProviderConfigService {
-  private static instance: ProviderConfigService;
+@Injectable()
+export class ProviderConfigService implements OnModuleInit {
+  private readonly logger = new Logger(ProviderConfigService.name);
   
   private networks: Map<string, NetworkConfig> = new Map();
   private globalConfig: GlobalProviderConfig;
   
-  /**
-   * Private constructor to enforce singleton pattern
-   */
-  private constructor() {
+  constructor(private readonly configService: ConfigService) {
     // Initialize with default global configuration
     this.globalConfig = {
       defaultProviderType: ProviderType.ALCHEMY,
@@ -155,16 +156,13 @@ export class ProviderConfigService {
     // Initialize with default network configurations
     this.initializeDefaultNetworks();
   }
-  
+
   /**
-   * Get singleton instance
+   * Initialize module - validate configuration
    */
-  public static getInstance(): ProviderConfigService {
-    if (!ProviderConfigService.instance) {
-      ProviderConfigService.instance = new ProviderConfigService();
-    }
-    
-    return ProviderConfigService.instance;
+  async onModuleInit(): Promise<void> {
+    this.loadFromEnv();
+    this.logger.log('Provider configuration service initialized');
   }
   
   /**
@@ -178,7 +176,7 @@ export class ProviderConfigService {
       chainId: 1,
       providers: {
         [ProviderType.ALCHEMY]: {
-          apiKey: process.env.ALCHEMY_API_KEY || '',
+          apiKey: this.configService.get<string>('ALCHEMY_API_KEY', ''),
           baseUrl: 'https://eth-mainnet.g.alchemy.com/v2/',
           rateLimit: {
             limit: 330,
@@ -188,7 +186,7 @@ export class ProviderConfigService {
           maxRetries: 3,
         },
         [ProviderType.INFURA]: {
-          apiKey: process.env.INFURA_API_KEY || process.env.INFURA_PROJECT_ID || '',
+          apiKey: this.configService.get<string>('INFURA_API_KEY') || this.configService.get<string>('INFURA_PROJECT_ID', ''),
           baseUrl: 'https://mainnet.infura.io/v3/',
           rateLimit: {
             limit: 100,
@@ -197,7 +195,7 @@ export class ProviderConfigService {
           timeout: 30000,
           maxRetries: 3,
           options: {
-            projectSecret: process.env.INFURA_PROJECT_SECRET || '',
+            projectSecret: this.configService.get<string>('INFURA_PROJECT_SECRET', ''),
           },
         },
       },
@@ -493,60 +491,30 @@ export class ProviderConfigService {
    */
   public loadFromEnv(): void {
     // Update global config from environment variables
-    if (process.env.DEFAULT_PROVIDER_TYPE) {
-      this.globalConfig.defaultProviderType = process.env.DEFAULT_PROVIDER_TYPE as ProviderType;
+    const defaultProviderType = this.configService.get<string>('DEFAULT_PROVIDER_TYPE');
+    if (defaultProviderType) {
+      this.globalConfig.defaultProviderType = defaultProviderType as ProviderType;
     }
     
-    if (process.env.PROVIDER_PRIORITY) {
+    const providerPriority = this.configService.get<string>('PROVIDER_PRIORITY');
+    if (providerPriority) {
       try {
-        const priority = JSON.parse(process.env.PROVIDER_PRIORITY);
+        const priority = JSON.parse(providerPriority);
         if (Array.isArray(priority)) {
           this.globalConfig.providerPriority = priority;
         }
       } catch (error) {
-        // Ignore parsing errors
+        this.logger.warn('Invalid PROVIDER_PRIORITY format, using defaults');
       }
     }
     
-    if (process.env.DEFAULT_TIMEOUT) {
-      const timeout = parseInt(process.env.DEFAULT_TIMEOUT, 10);
-      if (!isNaN(timeout)) {
-        this.globalConfig.defaultTimeout = timeout;
-      }
-    }
-    
-    if (process.env.DEFAULT_MAX_RETRIES) {
-      const maxRetries = parseInt(process.env.DEFAULT_MAX_RETRIES, 10);
-      if (!isNaN(maxRetries)) {
-        this.globalConfig.defaultMaxRetries = maxRetries;
-      }
-    }
-    
-    if (process.env.ENABLE_CACHING) {
-      this.globalConfig.enableCaching = process.env.ENABLE_CACHING === 'true';
-    }
-    
-    if (process.env.CACHE_TTL) {
-      const cacheTtl = parseInt(process.env.CACHE_TTL, 10);
-      if (!isNaN(cacheTtl)) {
-        this.globalConfig.cacheTtl = cacheTtl;
-      }
-    }
-    
-    if (process.env.ENABLE_FALLBACK) {
-      this.globalConfig.enableFallback = process.env.ENABLE_FALLBACK === 'true';
-    }
-    
-    if (process.env.ENABLE_HEALTH_CHECKS) {
-      this.globalConfig.enableHealthChecks = process.env.ENABLE_HEALTH_CHECKS === 'true';
-    }
-    
-    if (process.env.HEALTH_CHECK_INTERVAL) {
-      const interval = parseInt(process.env.HEALTH_CHECK_INTERVAL, 10);
-      if (!isNaN(interval)) {
-        this.globalConfig.healthCheckInterval = interval;
-      }
-    }
+    this.globalConfig.defaultTimeout = this.configService.get<number>('DEFAULT_TIMEOUT', this.globalConfig.defaultTimeout);
+    this.globalConfig.defaultMaxRetries = this.configService.get<number>('DEFAULT_MAX_RETRIES', this.globalConfig.defaultMaxRetries);
+    this.globalConfig.enableCaching = this.configService.get<string>('ENABLE_CACHING') === 'true';
+    this.globalConfig.cacheTtl = this.configService.get<number>('CACHE_TTL', this.globalConfig.cacheTtl);
+    this.globalConfig.enableFallback = this.configService.get<string>('ENABLE_FALLBACK') === 'true';
+    this.globalConfig.enableHealthChecks = this.configService.get<string>('ENABLE_HEALTH_CHECKS') === 'true';
+    this.globalConfig.healthCheckInterval = this.configService.get<number>('HEALTH_CHECK_INTERVAL', this.globalConfig.healthCheckInterval);
     
     // Update network configurations from environment variables
     for (const network of this.getAllNetworks()) {
@@ -555,19 +523,21 @@ export class ProviderConfigService {
         
         // Update API key
         const apiKeyEnvVar = `${envKeyPrefix}_API_KEY`;
-        if (process.env[apiKeyEnvVar]) {
+        const apiKeyValue = this.configService.get<string>(apiKeyEnvVar);
+        if (apiKeyValue) {
           const providerConfig = network.providers[providerType];
           if (providerConfig) {
-            providerConfig.apiKey = process.env[apiKeyEnvVar] || '';
+            providerConfig.apiKey = apiKeyValue;
           }
         }
         
         // Update base URL
         const baseUrlEnvVar = `${envKeyPrefix}_BASE_URL`;
-        if (process.env[baseUrlEnvVar]) {
+        const baseUrlValue = this.configService.get<string>(baseUrlEnvVar);
+        if (baseUrlValue) {
           const providerConfig = network.providers[providerType];
           if (providerConfig) {
-            providerConfig.baseUrl = process.env[baseUrlEnvVar];
+            providerConfig.baseUrl = baseUrlValue;
           }
         }
       }
@@ -596,7 +566,7 @@ export class ProviderConfigService {
         }
       }
     } catch (error) {
-      console.error('Error loading configuration from file:', error);
+      this.logger.error('Error loading configuration from file:', error);
     }
   }
 }

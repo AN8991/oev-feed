@@ -7,11 +7,16 @@ export interface ProtocolAdapterPort {
   initialize(): Promise<void>;
 
   /**
-   * Fetch user positions for a specific address
-   * @param userAddress Address to fetch positions for
+   * Fetch user positions for multiple addresses with optional filters
+   * @param params Query parameters including user addresses and filters
    * @returns Promise resolving to an array of position models
    */
-  fetchUserPositions(userAddress: string): Promise<any[]>;
+  fetchUserPositions(params: {
+    userAddresses: string[];
+    filterCriteria?: any;
+    startTimestamp?: number;
+    endTimestamp?: number;
+  }): Promise<any[]>;
 
   /**
    * Get health factor for a specific user address

@@ -1,7 +1,7 @@
 import { JsonRpcProvider } from 'ethers';
 import { BaseProviderAdapter } from './base-provider.adapter';
 import { ProviderAdapterPort, ProviderStats } from '@domain/ports/secondary/provider-adapter.port';
-import { logger, LogCategory, LogContext } from '@infrastructure/utils/structured-logger';
+import { Logger } from '@nestjs/common';
 
 /**
  * Infura provider adapter configuration
@@ -43,6 +43,7 @@ export interface InfuraProviderConfig {
  * Implements the provider adapter port for Infura
  */
 export class InfuraProviderAdapter extends BaseProviderAdapter implements ProviderAdapterPort {
+
   /**
    * Provider name
    */
@@ -184,12 +185,10 @@ export class InfuraProviderAdapter extends BaseProviderAdapter implements Provid
       // Test provider
       await this.testProvider();
       
-      logger.info(`Initialized Infura provider for ${this._network}`);
+      this.logger.log(`Initialized Infura provider for ${this._network}`);
     } catch (error: unknown) {
-      logger.error(
-        `Failed to initialize Infura provider for ${this._network}:`,
-        LogCategory.PROVIDER,
-        { error: error instanceof Error ? error.message : String(error) }
+      this.logger.error(
+        `Failed to initialize Infura provider for ${this._network}: ${error instanceof Error ? error.message : String(error)}`
       );
       throw new Error(
         `Failed to initialize Infura provider: ${error instanceof Error ? error.message : String(error)}`

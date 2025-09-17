@@ -1,10 +1,6 @@
+import { Logger } from '@nestjs/common';
 import { Provider, Contract } from 'ethers';
 import { ProviderAdapterPort, ProviderStats, RateLimitStatus } from '@domain/ports/secondary/provider-adapter.port';
-import { logger, LogCategory, LogContext } from '@infrastructure/utils/structured-logger';
-import { metrics, ProviderMetric } from '@infrastructure/utils/metrics-collector';
-import { CircuitBreaker } from '@infrastructure/utils/circuit-breaker';
-import { withExponentialBackoff } from '@shared/utils/exponential-backoff';
-import { isRateLimitError, isTransientError } from '@shared/utils/errors';
 
 /**
  * Enhanced provider adapter options
@@ -15,48 +11,22 @@ export interface EnhancedProviderOptions {
    * Default: 3
    */
   maxRetryAttempts: number;
-  
-  /**
-   * Initial backoff delay in milliseconds
-   * Default: 200ms
-   */
-  initialBackoffMs: number;
-  
-  /**
-   * Maximum backoff delay in milliseconds
-   * Default: 10000ms (10 seconds)
-   */
-  maxBackoffMs: number;
-  
-  /**
-   * Circuit breaker failure threshold
-   * Default: 5
-   */
-  circuitBreakerFailureThreshold: number;
-  
-  /**
-   * Circuit breaker reset timeout in milliseconds
-   * Default: 30000ms (30 seconds)
-   */
-  circuitBreakerResetMs: number;
 }
 
 /**
  * Default enhanced provider options
  */
 const DEFAULT_ENHANCED_OPTIONS: EnhancedProviderOptions = {
-  maxRetryAttempts: 3,
-  initialBackoffMs: 200,
-  maxBackoffMs: 10000,
-  circuitBreakerFailureThreshold: 5,
-  circuitBreakerResetMs: 30000
+  maxRetryAttempts: 3
 };
 
 /**
- * Enhanced provider adapter that adds advanced rate limiting features
+ * Enhanced provider adapter that adds retry functionality
  * to an existing provider adapter
  */
 export class EnhancedProviderAdapter implements ProviderAdapterPort {
+  private readonly logger = new Logger(EnhancedProviderAdapter.name);
+  
   /**
    * Wrapped provider adapter
    */
@@ -66,11 +36,6 @@ export class EnhancedProviderAdapter implements ProviderAdapterPort {
    * Enhanced provider options
    */
   private readonly options: EnhancedProviderOptions;
-  
-  /**
-   * Circuit breaker for this provider
-   */
-  private readonly circuitBreaker: CircuitBreaker;
   
   /**
    * Constructor
@@ -88,30 +53,7 @@ export class EnhancedProviderAdapter implements ProviderAdapterPort {
       ...options
     };
     
-    // Initialize circuit breaker
-    this.circuitBreaker = new CircuitBreaker(
-      `${baseProvider.name}-${baseProvider.network}`,
-      {
-        failureThreshold: this.options.circuitBreakerFailureThreshold,
-        resetTimeoutMs: this.options.circuitBreakerResetMs
-      },
-      {
-        provider: baseProvider.name,
-        providerType: baseProvider.type,
-        network: baseProvider.network
-      }
-    );
-    
-    logger.info(
-      `Enhanced provider adapter created for ${baseProvider.name} (${baseProvider.type}) on ${baseProvider.network}`,
-      LogCategory.PROVIDER,
-      {
-        provider: baseProvider.name,
-        providerType: baseProvider.type,
-        network: baseProvider.network,
-        options: this.options
-      }
-    );
+    this.logger.log(`Enhanced provider adapter created for ${baseProvider.getName()} (${baseProvider.getType()}) on ${baseProvider.network}`);
   }
   
   /**
@@ -161,20 +103,9 @@ export class EnhancedProviderAdapter implements ProviderAdapterPort {
    */
   public async initialize(): Promise<void> {
     try {
-      await this.circuitBreaker.execute(async () => {
-        await this.baseProvider.initialize();
-      });
+      await this.baseProvider.initialize();
     } catch (error: unknown) {
-      logger.error(
-        `Failed to initialize enhanced provider ${this.name}:`,
-        LogCategory.PROVIDER,
-        {
-          provider: this.name,
-          providerType: this.type,
-          network: this.network
-        },
-        error instanceof Error ? error : new Error(String(error))
-      );
+      this.logger.error(`Failed to initialize enhanced provider ${this.name}: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
@@ -184,11 +115,8 @@ export class EnhancedProviderAdapter implements ProviderAdapterPort {
    */
   public async isHealthy(): Promise<boolean> {
     try {
-      return await this.circuitBreaker.execute(async () => {
-        return await this.baseProvider.isHealthy();
-      });
+      return await this.baseProvider.isHealthy();
     } catch (error) {
-      // If circuit breaker is open, provider is unhealthy
       return false;
     }
   }
@@ -197,19 +125,7 @@ export class EnhancedProviderAdapter implements ProviderAdapterPort {
    * Get provider statistics
    */
   public getStats(): ProviderStats {
-    const baseStats = this.baseProvider.getStats();
-    const circuitBreakerStats = this.circuitBreaker.getStats();
-    
-    // Enhance stats with circuit breaker info and retry metrics
-    return {
-      ...baseStats,
-      circuitBreakerState: circuitBreakerStats.state,
-      circuitBreakerFailures: circuitBreakerStats.consecutiveFailures,
-      circuitBreakerResetAt: circuitBreakerStats.resetAt,
-      retryAttempts: 0, // These will be updated by the exponential backoff utility
-      retrySuccesses: 0,
-      retryFailures: 0
-    };
+    return this.baseProvider.getStats();
   }
   
   /**
@@ -223,109 +139,46 @@ export class EnhancedProviderAdapter implements ProviderAdapterPort {
    * Get the current block number with retry logic
    */
   public async getBlockNumber(): Promise<number> {
-    const context: LogContext = {
-      provider: this.name,
-      providerType: this.type,
-      network: this.network,
-      operation: 'getBlockNumber'
-    };
+    let lastError: Error;
     
-    try {
-      return await this.circuitBreaker.execute(async () => {
-        const result = await withExponentialBackoff(
-          async () => await this.baseProvider.getBlockNumber(),
-          (error) => isRateLimitError(error) || isTransientError(error),
-          {
-            initialDelayMs: this.options.initialBackoffMs,
-            maxDelayMs: this.options.maxBackoffMs,
-            maxAttempts: this.options.maxRetryAttempts
-          },
-          context
-        );
+    for (let attempt = 0; attempt < this.options.maxRetryAttempts; attempt++) {
+      try {
+        return await this.baseProvider.getBlockNumber();
+      } catch (error: unknown) {
+        lastError = error instanceof Error ? error : new Error(String(error));
         
-        if (!result.success) {
-          throw result.error;
+        if (attempt < this.options.maxRetryAttempts - 1) {
+          const delay = Math.min(200 * Math.pow(2, attempt), 5000);
+          await new Promise(resolve => setTimeout(resolve, delay));
         }
-        
-        return result.result as number;
-      });
-    } catch (error: unknown) {
-      logger.error(
-        `Failed to get block number from ${this.name} after retries:`,
-        LogCategory.PROVIDER,
-        context,
-        error instanceof Error ? error : new Error(String(error))
-      );
-      
-      // Record metrics
-      metrics.recordCounter(
-        ProviderMetric.RETRY_FAILURE,
-        1,
-        {
-          provider: this.name,
-          provider_type: this.type,
-          network: this.network,
-          operation: 'getBlockNumber'
-        }
-      );
-      
-      throw error;
+      }
     }
+    
+    this.logger.error(`Failed to get block number from ${this.name} after ${this.options.maxRetryAttempts} attempts: ${lastError!.message}`);
+    throw lastError!;
   }
   
   /**
    * Get the balance of an address with retry logic
    */
   public async getBalance(address: string): Promise<bigint> {
-    const context: LogContext = {
-      provider: this.name,
-      providerType: this.type,
-      network: this.network,
-      operation: 'getBalance',
-      address
-    };
+    let lastError: Error;
     
-    try {
-      return await this.circuitBreaker.execute(async () => {
-        const result = await withExponentialBackoff(
-          async () => await this.baseProvider.getBalance(address),
-          (error) => isRateLimitError(error) || isTransientError(error),
-          {
-            initialDelayMs: this.options.initialBackoffMs,
-            maxDelayMs: this.options.maxBackoffMs,
-            maxAttempts: this.options.maxRetryAttempts
-          },
-          context
-        );
+    for (let attempt = 0; attempt < this.options.maxRetryAttempts; attempt++) {
+      try {
+        return await this.baseProvider.getBalance(address);
+      } catch (error: unknown) {
+        lastError = error instanceof Error ? error : new Error(String(error));
         
-        if (!result.success) {
-          throw result.error;
+        if (attempt < this.options.maxRetryAttempts - 1) {
+          const delay = Math.min(200 * Math.pow(2, attempt), 5000);
+          await new Promise(resolve => setTimeout(resolve, delay));
         }
-        
-        return result.result as bigint;
-      });
-    } catch (error) {
-      logger.error(
-        `Failed to get balance from ${this.name} after retries:`,
-        LogCategory.PROVIDER,
-        context,
-        error instanceof Error ? error : new Error(String(error))
-      );
-      
-      // Record metrics
-      metrics.recordCounter(
-        ProviderMetric.RETRY_FAILURE,
-        1,
-        {
-          provider: this.name,
-          provider_type: this.type,
-          network: this.network,
-          operation: 'getBalance'
-        }
-      );
-      
-      throw error;
+      }
     }
+    
+    this.logger.error(`Failed to get balance from ${this.name} after ${this.options.maxRetryAttempts} attempts: ${lastError!.message}`);
+    throw lastError!;
   }
   
   /**
@@ -335,20 +188,4 @@ export class EnhancedProviderAdapter implements ProviderAdapterPort {
     await this.baseProvider.cleanup();
   }
   
-  /**
-   * Reset the circuit breaker
-   */
-  public resetCircuitBreaker(): void {
-    this.circuitBreaker.reset();
-    
-    logger.info(
-      `Circuit breaker reset for ${this.name} (${this.type}) on ${this.network}`,
-      LogCategory.PROVIDER,
-      {
-        provider: this.name,
-        providerType: this.type,
-        network: this.network
-      }
-    );
-  }
 }

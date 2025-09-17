@@ -2,7 +2,7 @@ What we want to achieve:
 
 We are trying to build a system that can pull in data from multiple different lending and borrowing protocols like AAVE across multiple networks like Ethereum, Optimism, Arbitrum, Polygon, Avalanche, Base etc for user positions and health factors. We will transform the fetched data into a common format. The core business logic for this data would be to build a prediction model to analyze user positions and find the chances of a wallet going into liquidation based on multiple factors like LTV, Liquidation threshold and overall market volatility.
 
-Okay lets start by modifying our existing adapter logic for data fetch. To reiterate we need to fetch user position information that contains details about the lending & borowwing of assets, asset symbol, the value of the assets in both native and USD terms, If the assets are set as collateral. There are other details like LTV, Liquidation threshold, health factor which are also essentially.
+Always check if there are existing NestJS packages for anything you are trying to build. Dont overengineer things when simplified solutions are present. Code reusability, modularity and simplicity are the key factors.
 
 
 Silo Finance Important weblinks:

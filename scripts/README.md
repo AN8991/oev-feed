@@ -53,7 +53,7 @@ Complete system integration tests and cross-component validation.
 Development tools and validation utilities.
 
 - **`verify-contracts.ts`** - Automates smart contract address and bytecode verification
-- **`test-path-aliases.ts`** - Validates TypeScript path alias configuration and import boundaries
+- **`test-path-aliases.ts`** - Validates TypeScript path alias configuration and import boundaries (uses NestJS Logger)
 
 ## How to Run Scripts
 

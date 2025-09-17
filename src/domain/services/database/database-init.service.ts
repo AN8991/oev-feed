@@ -1,50 +1,53 @@
 /**
  * Database initialization service
- * Responsible for initializing the database connection
+ * Responsible for initializing the database connection using NestJS DI
  */
 
 import 'reflect-metadata';
-import { AppDataSource } from '@infrastructure/config/typeorm.config';
-import { logger, LogCategory } from '@infrastructure/utils/structured-logger';
+import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import { InjectDataSource } from '@nestjs/typeorm';
+import { DataSource } from 'typeorm';
 
-export class DatabaseInitService {
-  private static instance: DatabaseInitService;
-  private initialized = false;
+@Injectable()
+export class DatabaseInitService implements OnModuleInit, OnModuleDestroy {
+  private readonly logger = new Logger(DatabaseInitService.name);
 
-  /**
-   * Get the singleton instance
-   * @returns DatabaseInitService instance
-   */
-  public static getInstance(): DatabaseInitService {
-    if (!DatabaseInitService.instance) {
-      DatabaseInitService.instance = new DatabaseInitService();
-    }
-    return DatabaseInitService.instance;
-  }
+  constructor(
+    @InjectDataSource()
+    private readonly dataSource: DataSource
+  ) {}
 
   /**
-   * Initialize the database connection
-   * @returns Promise that resolves when the database is initialized
+   * NestJS lifecycle hook - called when module is initialized
    */
-  public async initialize(): Promise<void> {
-    if (this.initialized) {
-      logger.debug('Database already initialized', LogCategory.DATABASE);
+  async onModuleInit(): Promise<void> {
+    if (this.dataSource.isInitialized) {
+      this.logger.debug('Database already initialized');
       return;
     }
 
     try {
-      // Initialize TypeORM data source
-      await AppDataSource.initialize();
-      
-      this.initialized = true;
-      logger.info('Database connection established', LogCategory.DATABASE);
+      // DataSource is automatically initialized by @nestjs/typeorm
+      this.logger.log('Database connection established via NestJS TypeORM');
     } catch (error) {
-      logger.error(
-        'Failed to initialize database connection:',
-        LogCategory.DATABASE,
-        {},
-        error instanceof Error ? error : new Error(String(error))
-      );
+      this.logger.error(`Failed to initialize database connection: ${error instanceof Error ? error.message : String(error)}`);
+      throw error;
+    }
+  }
+
+  /**
+   * NestJS lifecycle hook - called when module is destroyed
+   */
+  async onModuleDestroy(): Promise<void> {
+    if (!this.dataSource.isInitialized) {
+      return;
+    }
+
+    try {
+      // DataSource is automatically destroyed by @nestjs/typeorm
+      this.logger.log('Database connection will be closed by NestJS TypeORM');
+    } catch (error) {
+      this.logger.error(`Failed to close database connection: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
@@ -53,34 +56,28 @@ export class DatabaseInitService {
    * Get the TypeORM data source
    * @returns TypeORM data source
    */
-  public getDataSource() {
-    if (!this.initialized) {
+  public getDataSource(): DataSource {
+    if (!this.dataSource.isInitialized) {
       throw new Error('Database not initialized');
     }
-    return AppDataSource;
+    return this.dataSource;
   }
 
   /**
-   * Close the database connection
-   * @returns Promise that resolves when the database connection is closed
+   * Legacy method for backward compatibility - use getDataSource() instead
+   * @deprecated Use getDataSource() instead
+   */
+  public async initialize(): Promise<void> {
+    this.logger.warn('initialize() is deprecated - database is automatically initialized by NestJS');
+    return this.onModuleInit();
+  }
+
+  /**
+   * Legacy method for backward compatibility - handled by NestJS lifecycle
+   * @deprecated Database connection is automatically closed by NestJS
    */
   public async close(): Promise<void> {
-    if (!this.initialized) {
-      return;
-    }
-
-    try {
-      await AppDataSource.destroy();
-      this.initialized = false;
-      logger.info('Database connection closed', LogCategory.DATABASE);
-    } catch (error) {
-      logger.error(
-        'Failed to close database connection:',
-        LogCategory.DATABASE,
-        {},
-        error instanceof Error ? error : new Error(String(error))
-      );
-      throw error;
-    }
+    this.logger.warn('close() is deprecated - database connection is automatically managed by NestJS');
+    return this.onModuleDestroy();
   }
 }

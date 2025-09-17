@@ -1,13 +1,14 @@
 import { Provider, Contract } from 'ethers';
 import { ProviderAdapterPort, ProviderStats, RateLimitStatus } from '@domain/ports/secondary/provider-adapter.port';
-import { logger, LogCategory, LogContext } from '@infrastructure/utils/structured-logger';
-import { metrics, ProviderMetric } from '@infrastructure/utils/metrics-collector';
+import { Logger } from '@nestjs/common';
 import { normalizeAddress } from '@domain/utils/address-utils';
 
 /**
  * Base class for provider adapters
  */
 export abstract class BaseProviderAdapter implements ProviderAdapterPort {
+  protected readonly logger = new Logger(BaseProviderAdapter.name);
+
   /**
    * Provider name
    */
@@ -78,40 +79,11 @@ export abstract class BaseProviderAdapter implements ProviderAdapterPort {
       const blockNumber = await this._provider.getBlockNumber();
       const responseTime = Date.now() - startTime;
       
-      // Log provider initialization
-      const context: LogContext = {
-        provider: this.name,
-        providerType: this.type,
-        network: this.network,
-        operation: 'initialize',
-        durationMs: responseTime,
-        blockNumber
-      };
-      
-      logger.info(`Provider ${this.name} initialized on ${this.network}, current block: ${blockNumber}`, LogCategory.PROVIDER, context);
-      
-      // Record metrics
-      metrics.recordProviderBlockHeight(this.name, this.type, this.network, blockNumber);
-      metrics.recordProviderRequest(this.name, this.type, this.network, 'initialize', responseTime, true);
-      
+      this.logger.log(`Provider ${this.name} initialized on ${this.network}, current block: ${blockNumber} (${responseTime}ms)`);
       this._initialized = true;
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      
-      // Log error
-      const context: LogContext = {
-        provider: this.name,
-        providerType: this.type,
-        network: this.network,
-        operation: 'initialize'
-      };
-      
-      logger.error(`Failed to test provider ${this.name}:`, LogCategory.PROVIDER, context, 
-        error instanceof Error ? error : new Error(errorMsg));
-      
-      // Record metrics
-      metrics.recordProviderRequest(this.name, this.type, this.network, 'initialize', 0, false);
-      
+      this.logger.error(`Failed to test provider ${this.name}: ${errorMsg}`);
       throw new Error(`Failed to test provider ${this.name}: ${errorMsg}`);
     }
   }
@@ -131,43 +103,12 @@ export abstract class BaseProviderAdapter implements ProviderAdapterPort {
       const responseTime = Date.now() - startTime;
       
       this.updateStats(responseTime, true);
-      
-      // Log health check
-      const context: LogContext = {
-        provider: this.name,
-        providerType: this.type,
-        network: this.network,
-        operation: 'healthCheck',
-        durationMs: responseTime,
-        blockNumber
-      };
-      
-      logger.debug(`Provider ${this.name} health check successful`, LogCategory.PROVIDER, context);
-      
-      // Record metrics
-      metrics.recordProviderHealth(this.name, this.type, this.network, true);
-      metrics.recordProviderBlockHeight(this.name, this.type, this.network, blockNumber);
-      metrics.recordProviderRequest(this.name, this.type, this.network, 'healthCheck', responseTime, true);
+      this.logger.debug(`Provider ${this.name} health check successful, block: ${blockNumber} (${responseTime}ms)`);
       
       return true;
     } catch (error) {
       this.updateStats(0, false);
-      
-      // Log error
-      const context: LogContext = {
-        provider: this.name,
-        providerType: this.type,
-        network: this.network,
-        operation: 'healthCheck'
-      };
-      
-      logger.error(`Provider ${this.name} health check failed:`, LogCategory.PROVIDER, context,
-        error instanceof Error ? error : new Error(String(error)));
-      
-      // Record metrics
-      metrics.recordProviderHealth(this.name, this.type, this.network, false);
-      metrics.recordProviderRequest(this.name, this.type, this.network, 'healthCheck', 0, false);
-      
+      this.logger.error(`Provider ${this.name} health check failed: ${error instanceof Error ? error.message : String(error)}`);
       return false;
     }
   }
@@ -198,17 +139,7 @@ export abstract class BaseProviderAdapter implements ProviderAdapterPort {
     }
     
     const normalizedAddress = normalizeAddress(address);
-    
-    // Log contract creation
-    const context: LogContext = {
-      provider: this.name,
-      providerType: this.type,
-      network: this.network,
-      operation: 'getContract',
-      contractAddress: normalizedAddress
-    };
-    
-    logger.debug(`Creating contract instance for ${normalizedAddress}`, LogCategory.PROVIDER, context);
+    this.logger.debug(`Creating contract instance for ${normalizedAddress}`);
     
     return new Contract(normalizedAddress, abi, this._provider);
   }
@@ -228,41 +159,12 @@ export abstract class BaseProviderAdapter implements ProviderAdapterPort {
       const responseTime = Date.now() - startTime;
       
       this.updateStats(responseTime, true);
-      
-      // Log block number
-      const context: LogContext = {
-        provider: this.name,
-        providerType: this.type,
-        network: this.network,
-        operation: 'getBlockNumber',
-        durationMs: responseTime,
-        blockNumber
-      };
-      
-      logger.debug(`Got block number ${blockNumber} from ${this.name}`, LogCategory.PROVIDER, context);
-      
-      // Record metrics
-      metrics.recordProviderBlockHeight(this.name, this.type, this.network, blockNumber);
-      metrics.recordProviderRequest(this.name, this.type, this.network, 'getBlockNumber', responseTime, true);
+      this.logger.debug(`Got block number ${blockNumber} from ${this.name} (${responseTime}ms)`);
       
       return blockNumber;
     } catch (error) {
       this.updateStats(0, false);
-      
-      // Log error
-      const context: LogContext = {
-        provider: this.name,
-        providerType: this.type,
-        network: this.network,
-        operation: 'getBlockNumber'
-      };
-      
-      logger.error(`Failed to get block number from ${this.name}:`, LogCategory.PROVIDER, context,
-        error instanceof Error ? error : new Error(String(error)));
-      
-      // Record metrics
-      metrics.recordProviderRequest(this.name, this.type, this.network, 'getBlockNumber', 0, false);
-      
+      this.logger.error(`Failed to get block number from ${this.name}: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
@@ -284,41 +186,12 @@ export abstract class BaseProviderAdapter implements ProviderAdapterPort {
       const responseTime = Date.now() - startTime;
       
       this.updateStats(responseTime, true);
-      
-      // Log balance
-      const context: LogContext = {
-        provider: this.name,
-        providerType: this.type,
-        network: this.network,
-        operation: 'getBalance',
-        durationMs: responseTime,
-        address: normalizedAddress
-      };
-      
-      logger.debug(`Got balance for ${normalizedAddress} from ${this.name}`, LogCategory.PROVIDER, context);
-      
-      // Record metrics
-      metrics.recordProviderRequest(this.name, this.type, this.network, 'getBalance', responseTime, true);
+      this.logger.debug(`Got balance for ${normalizedAddress} from ${this.name} (${responseTime}ms)`);
       
       return balance;
     } catch (error) {
       this.updateStats(0, false);
-      
-      // Log error
-      const context: LogContext = {
-        provider: this.name,
-        providerType: this.type,
-        network: this.network,
-        operation: 'getBalance',
-        address
-      };
-      
-      logger.error(`Failed to get balance from ${this.name}:`, LogCategory.PROVIDER, context,
-        error instanceof Error ? error : new Error(String(error)));
-      
-      // Record metrics
-      metrics.recordProviderRequest(this.name, this.type, this.network, 'getBalance', 0, false);
-      
+      this.logger.error(`Failed to get balance from ${this.name}: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
@@ -329,16 +202,7 @@ export abstract class BaseProviderAdapter implements ProviderAdapterPort {
   public async cleanup(): Promise<void> {
     // Most providers don't need explicit cleanup
     this._initialized = false;
-    
-    // Log cleanup
-    const context: LogContext = {
-      provider: this.name,
-      providerType: this.type,
-      network: this.network,
-      operation: 'cleanup'
-    };
-    
-    logger.info(`Provider ${this.name} cleaned up`, LogCategory.PROVIDER, context);
+    this.logger.log(`Provider ${this.name} cleaned up`);
   }
   
   /**
@@ -365,29 +229,6 @@ export abstract class BaseProviderAdapter implements ProviderAdapterPort {
     
     // Update last request timestamp
     this.stats.lastRequestTimestamp = now;
-    
-    // Record performance metrics
-    logger.logProviderPerformance(
-      'request',
-      responseTime,
-      success,
-      {
-        provider: this.name,
-        providerType: this.type,
-        network: this.network
-      }
-    );
-    
-    // Record rate limit if available
-    if (this.stats.rateLimitStatus) {
-      metrics.recordProviderRateLimit(
-        this.name,
-        this.type,
-        this.network,
-        this.stats.rateLimitStatus.remaining,
-        this.stats.rateLimitStatus.resetTimestamp
-      );
-    }
   }
   
   /**
@@ -396,32 +237,7 @@ export abstract class BaseProviderAdapter implements ProviderAdapterPort {
    */
   protected updateRateLimitStatus(rateLimitStatus: RateLimitStatus): void {
     this.stats.rateLimitStatus = { ...rateLimitStatus };
-    
-    // Log rate limit update
-    const context: LogContext = {
-      provider: this.name,
-      providerType: this.type,
-      network: this.network,
-      operation: 'updateRateLimit',
-      remaining: rateLimitStatus.remaining,
-      limit: rateLimitStatus.limit,
-      resetTimestamp: rateLimitStatus.resetTimestamp
-    };
-    
-    logger.debug(
-      `Provider ${this.name} rate limit: ${rateLimitStatus.remaining}/${rateLimitStatus.limit}`,
-      LogCategory.PROVIDER,
-      context
-    );
-    
-    // Record rate limit metrics
-    metrics.recordProviderRateLimit(
-      this.name,
-      this.type,
-      this.network,
-      rateLimitStatus.remaining,
-      rateLimitStatus.resetTimestamp
-    );
+    this.logger.debug(`Provider ${this.name} rate limit: ${rateLimitStatus.remaining}/${rateLimitStatus.limit}`);
   }
 
   /**

@@ -1,6 +1,6 @@
 import { DataSource, DataSourceOptions } from 'typeorm';
 import { join } from 'path';
-import { config } from './config';
+import { getLegacyConfigService } from './config';
 import { Provider } from '../../adapters/secondary/database/typeorm/entities/provider.entity';
 import { ProviderRequest } from '../../adapters/secondary/database/typeorm/entities/provider-request.entity';
 import { ProviderHealth } from '../../adapters/secondary/database/typeorm/entities/provider-health.entity';
@@ -9,21 +9,23 @@ import { Transaction } from '../../adapters/secondary/database/typeorm/entities/
 import { OevEvent } from '../../adapters/secondary/database/typeorm/entities/oev-event.entity';
 import { OevOpportunity } from '../../adapters/secondary/database/typeorm/entities/oev-opportunity.entity';
 import { BaseEntity } from '../../adapters/secondary/database/typeorm/entities/base.entity';
-import { PositionEntity } from '@/adapters/secondary/database/typeorm/entities/position.entity';
-import { UserEntity } from '@/adapters/secondary/database/typeorm/entities/user.entity';
+import { PositionEntity } from '../../adapters/secondary/database/typeorm/entities/position.entity';
+import { UserEntity } from '../../adapters/secondary/database/typeorm/entities/user.entity';
+
+// Get config service instance for legacy support
+const configService = getLegacyConfigService();
 
 // TypeORM configuration options
 export const typeOrmConfig: DataSourceOptions = {
   type: 'postgres',
-  host: config.database.host,
-  port: config.database.port,
-  username: config.database.username,
-  password: config.database.password,
-  database: config.database.name,
-  // TODO: Temporarily set synchronize to true for development
-  //synchronize: config.database.synchronize,
-  synchronize: true,
-  logging: config.database.logging,
+  host: configService.database.host,
+  port: configService.database.port,
+  username: configService.database.username,
+  password: configService.database.password,
+  database: configService.database.name,
+  // Temporarily disable synchronize to avoid schema migration issues
+  synchronize: false,
+  logging: configService.database.logging,
   entities: [
     BaseEntity,
     Provider,

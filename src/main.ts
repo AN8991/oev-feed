@@ -2,10 +2,11 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { HttpExceptionFilter } from './shared/utils/http-exception.filter';
-import { ValidationPipe } from '@nestjs/common';
+import { ValidationPipe, Logger } from '@nestjs/common';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  const logger = new Logger('Bootstrap');
 
   // Set global prefix
   app.setGlobalPrefix('api/v1.0.0');
@@ -26,7 +27,7 @@ async function bootstrap() {
   SwaggerModule.setup('api/v1.0.0/docs', app, document);
 
   await app.listen(3000);
-  console.log(`Application is running on: ${await app.getUrl()}`);
+  logger.log(`Application is running on: ${await app.getUrl()}`);
 }
 
 bootstrap();

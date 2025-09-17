@@ -17,12 +17,21 @@ process.on('unhandledRejection', (reason, promise) => {
 import { config } from 'dotenv';
 config();
 import { ProtocolAdapterFactory } from '@adapters/secondary/protocols/protocol-adapter-factory';
-import { logger } from '@infrastructure/utils/logger';
+import { Logger } from '@nestjs/common';
+
+const logger = new Logger('TestAaveV3Adapter');
 import { PositionModel } from '@domain/models/position.model';
 import { TypeORMAdapter } from '@adapters/secondary/database/typeorm/typeorm-adapter';
 import { DatabasePort } from '@domain/ports/secondary/database.port';
-import { AppDataSource } from '@infrastructure/config/typeorm.config';
+import { RiskAssessmentService } from '@application/services/risk-assessment.service';
+import { PositionsService } from '@domain/services/positions.service';
+import { RiskCalculator, AssetPosition } from '@domain/models/risk.model';
+import { UserProtocolPosition, Protocol } from '@domain/types/protocols';
+import { Network } from '@domain/types/networks';
+// PositionRepository removed - using direct TypeORM Repository<PositionEntity> instead
+import { PositionEntity } from '@adapters/secondary/database/typeorm/entities/position.entity';
 import { UserEntity } from '@adapters/secondary/database/typeorm/entities/user.entity';
+import { DataSource } from 'typeorm';
 
 // Load environment variables
 
@@ -67,13 +76,23 @@ async function testAaveV3Adapter() {
 
   try {
     console.log('1. Initializing database connection...');
-    if (!AppDataSource.isInitialized) {
-      await AppDataSource.initialize();
-      console.log('   ✅ Database connection initialized');
-    }
+    const dataSource = new DataSource({
+      type: 'postgres',
+      host: process.env.DB_HOST || 'localhost',
+      port: parseInt(process.env.DB_PORT || '5432'),
+      username: process.env.DB_USERNAME || 'postgres',
+      password: process.env.DB_PASSWORD || 'password',
+      database: process.env.DB_NAME || 'oev_feed',
+      entities: [PositionEntity, UserEntity],
+      synchronize: false,
+      logging: false,
+    });
+    
+    await dataSource.initialize();
+    console.log('   ✅ Database connection initialized');
 
     console.log('2. Finding or creating test user...');
-    const userRepo = AppDataSource.getRepository(UserEntity);
+    const userRepo = dataSource.getRepository(UserEntity);
     user = await userRepo.findOne({ where: { address: TEST_USER_ADDRESS } });
     
     if (!user) {
@@ -85,11 +104,23 @@ async function testAaveV3Adapter() {
     }
 
     console.log('3. Creating adapter configuration...');
-    const config = createAdapterConfig();
+    
+    // Try Infura first since Alchemy is timing out
+    const infuraUrl = `https://mainnet.infura.io/v3/${process.env.INFURA_API_KEY}`;
+    const alchemyUrl = `https://eth-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`;
+    
+    const config = {
+      poolAddress: process.env.AAVE_V3_ETHEREUM_POOL || '0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2',
+      dataProviderAddress: process.env.AAVE_V3_ETHEREUM_DATA_PROVIDER || '0x7B4EB56E7CD4b454BA8ff71E4518426369a138a3',
+      oracleAddress: process.env.AAVE_V3_ETHEREUM_ORACLE || '0x54586bE62E3c3580375aE3723C145253060Ca0C2',
+      providerUrl: infuraUrl, // Using Infura instead of Alchemy
+    };
     console.log('   Config:', config);
 
     console.log('4. Creating and initializing adapter...');
-    const adapter = ProtocolAdapterFactory.createAdapter('aave-v3', 'ethereum', config);
+    // Note: ProtocolAdapterFactory is now injectable, create instance directly for testing
+    const factory = new ProtocolAdapterFactory();
+    const adapter = factory.createAdapter('aave-v3', 'ethereum', config);
     await adapter.initialize();
     console.log('   ✅ Adapter initialized');
 
@@ -100,7 +131,7 @@ async function testAaveV3Adapter() {
     console.log('6. Fetching user positions...');
     console.log('   User address:', TEST_USER_ADDRESS);
     
-    positions = await adapter.fetchUserPositions(TEST_USER_ADDRESS);
+    positions = await adapter.fetchUserPositions({ userAddresses: [TEST_USER_ADDRESS] });
     
     console.log('\n' + '='.repeat(50));
     console.log('POSITION RESULTS:');
@@ -145,32 +176,108 @@ async function testAaveV3Adapter() {
       if (user) {
         const persistablePositions: PersistablePosition[] = positions.map(pos => ({ ...pos, user: user || undefined }));
         
-        const db: DatabasePort = new TypeORMAdapter();
+        // Create TypeORM adapter with manual dependency setup
+        const dataSource = new DataSource({
+          type: 'postgres',
+          host: process.env.DB_HOST || 'localhost',
+          port: parseInt(process.env.DB_PORT || '5432'),
+          username: process.env.DB_USERNAME || 'postgres',
+          password: process.env.DB_PASSWORD || 'password',
+          database: process.env.DB_NAME || 'oev_feed',
+          entities: [PositionEntity, UserEntity],
+          synchronize: false,
+          logging: false,
+        });
+        
+        await dataSource.initialize();
+        // Using TypeORMAdapter with direct repository injection (simplified pattern)
+        const db: DatabasePort = new TypeORMAdapter(dataSource.getRepository(PositionEntity));
+        
         try {
           await db.savePositions(persistablePositions);
           console.log(`   ✅ Saved ${positions.length} positions to database`);
           
-          // Verify the save by querying the database
-          console.log('\n8. Verifying database save...');
-          const positionRepo = AppDataSource.getRepository('PositionEntity');
-          const savedPositions = await positionRepo.find({
-            where: { user: { address: TEST_USER_ADDRESS } },
-            relations: ['user'],
-            order: { lastUpdated: 'DESC' },
-            take: 10
+          // Calculate and persist risk assessments
+          console.log('\n8. Calculating risk assessments...');
+          const positionRepository = dataSource.getRepository(PositionEntity);
+          const positionsService = new PositionsService(positionRepository, {} as any);
+          const riskAssessmentService = new RiskAssessmentService(positionRepository, positionsService);
+          
+          for (let i = 0; i < positions.length; i++) {
+            const position = positions[i];
+            console.log(`📊 Calculating risk for position ${i + 1}: ${position.assetSymbol}`);
+            
+            try {
+              // Convert PositionModel to UserProtocolPosition
+              const userPosition: UserProtocolPosition = {
+                userAddress: position.userAddress,
+                protocol: 'aave-v3' as any, // Use the exact protocol string from database
+                network: 'ethereum' as any, // Use the exact network string from database
+                version: 'v3',
+                collateral: position.collateralAmount,
+                debt: position.debtAmount,
+                healthFactor: position.healthFactor,
+                liquidationRisk: {
+                  threshold: position.liquidationThreshold,
+                  currentLTV: position.ltv
+                },
+                suppliedAssets: [{
+                  symbol: position.assetSymbol,
+                  address: position.assetAddress,
+                  amount: position.collateralAmount,
+                  valueETH: (parseFloat(position.collateralAmountUSD) / 2000).toString() // Mock ETH conversion
+                }],
+                borrowedAssets: [{
+                  symbol: position.assetSymbol,
+                  address: position.assetAddress,
+                  amount: position.debtAmount,
+                  valueETH: (parseFloat(position.debtAmountUSD) / 2000).toString()
+                }],
+                fetchedTimestamp: Date.now()
+              };
+              
+              const riskAssessment = await riskAssessmentService.calculateRiskAssessment(userPosition);
+              
+              console.log(`   ✅ Risk Level: ${riskAssessment.riskLevel}`);
+              console.log(`   ✅ Risk Score: ${riskAssessment.compositeRiskScore}/100`);
+              console.log(`   ✅ Health Factor: ${riskAssessment.healthFactor}`);
+              console.log(`   ✅ Alerts: ${riskAssessment.riskAlerts.length}`);
+              
+              if (riskAssessment.riskAlerts.length > 0) {
+                riskAssessment.riskAlerts.forEach((alert, idx) => {
+                  console.log(`      🚨 [${alert.severity}] ${alert.message}`);
+                });
+              }
+            } catch (riskError) {
+              console.error(`   ❌ Error calculating risk for position ${i + 1}:`, riskError);
+            }
+          }
+          
+          // Verify the save by querying the database with risk data
+          console.log('\n9. Verifying database save with risk assessments...');
+          const savedPositions = await db.getPositions(user?.address);
+          console.log(`   ✅ Retrieved ${savedPositions.length} positions from database`);
+          
+          // Query positions with risk data
+          const positionsWithRisk = await positionRepository.find({
+            where: { userAddress: TEST_USER_ADDRESS.toLowerCase() },
+            order: { riskScore: 'DESC' }
           });
           
-          console.log(`   ✅ Found ${savedPositions.length} positions in database for user`);
+          await dataSource.destroy();
           
-          if (savedPositions.length > 0) {
-            console.log('\n📊 DATABASE VERIFICATION:');
-            savedPositions.forEach((dbPos: any, index: number) => {
+          if (positionsWithRisk.length > 0) {
+            console.log('\n📊 DATABASE VERIFICATION WITH RISK ASSESSMENTS:');
+            positionsWithRisk.forEach((dbPos: any, index: number) => {
               console.log(`   Position ${index + 1}:`);
               console.log(`     Asset: ${dbPos.assetSymbol}`);
               console.log(`     Collateral: ${dbPos.collateralAmount}`);
               console.log(`     Debt: ${dbPos.debtAmount}`);
+              console.log(`     Risk Score: ${dbPos.riskScore || 'Not calculated'}`);
+              console.log(`     Risk Level: ${dbPos.riskLevel || 'Not calculated'}`);
+              console.log(`     Risk Assessed At: ${dbPos.riskAssessedAt ? new Date(dbPos.riskAssessedAt).toLocaleString() : 'Never'}`);
               console.log(`     Last Updated: ${dbPos.lastUpdated}`);
-              console.log(`     User ID: ${dbPos.user?.id}`);
+              console.log(`     User Address: ${dbPos.userAddress}`);
             });
           }
           
@@ -193,10 +300,7 @@ async function testAaveV3Adapter() {
     }
   } finally {
     // Clean up database connection
-    if (AppDataSource.isInitialized) {
-      await AppDataSource.destroy();
-      console.log('\n🔌 Database connection closed');
-    }
+    console.log('\n🔌 Database connection closed');
   }
 }
 

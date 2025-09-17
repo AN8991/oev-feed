@@ -1,19 +1,19 @@
+import { Injectable, Logger } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between } from 'typeorm';
 import { ProviderRequest } from '../entities/provider-request.entity';
-import { AppDataSource } from '@infrastructure/config';
-import { logger, LogCategoryger, LogCategory } from '@infrastructure/utils';
-import { ProviderRequestRepositoryPort } from '@domain/ports/secondary';
-
 /**
- * Repository for ProviderRequest entity operations
- * Implements the ProviderRequestRepositoryPort from the domain layer
+ * Repository service for ProviderRequest entity operations
+ * Simplified to use direct TypeORM without port abstraction
  */
-export class ProviderRequestRepository implements ProviderRequestRepositoryPort<ProviderRequest> {
-  private repository: Repository<ProviderRequest>;
+@Injectable()
+export class ProviderRequestRepository {
+  private readonly logger = new Logger(ProviderRequestRepository.name);
 
-  constructor() {
-    this.repository = AppDataSource.getRepository(ProviderRequest);
-  }
+  constructor(
+    @InjectRepository(ProviderRequest)
+    private readonly repository: Repository<ProviderRequest>,
+  ) {}
 
   /**
    * Create a new provider request record
@@ -25,7 +25,7 @@ export class ProviderRequestRepository implements ProviderRequestRepositoryPort<
       const request = this.repository.create(data);
       return await this.repository.save(request);
     } catch (error) {
-      logger.error('Error creating provider request record', LogCategory.PROVIDER, { 
+      this.logger.error('Error creating provider request record', { 
         providerId: data.providerId,
         method: data.method,
         error 
@@ -48,7 +48,7 @@ export class ProviderRequestRepository implements ProviderRequestRepositoryPort<
         take: limit
       });
     } catch (error) {
-      logger.error('Error finding provider requests', LogCategory.PROVIDER, { providerId, error });
+      this.logger.error('Error finding provider requests', { providerId, error });
       throw error;
     }
   }
@@ -99,7 +99,7 @@ export class ProviderRequestRepository implements ProviderRequestRepositoryPort<
         averageResponseTime
       };
     } catch (error) {
-      logger.error('Error getting provider statistics', LogCategory.PROVIDER, { 
+      this.logger.error('Error getting provider statistics', { 
         providerId, 
         startTime, 
         endTime, 
@@ -128,7 +128,7 @@ export class ProviderRequestRepository implements ProviderRequestRepositoryPort<
 
       return count;
     } catch (error) {
-      logger.error('Error getting rate limit status', LogCategory.PROVIDER, { 
+      this.logger.error('Error getting rate limit status', { 
         providerId, 
         timeWindowMs, 
         error 
@@ -150,7 +150,7 @@ export class ProviderRequestRepository implements ProviderRequestRepositoryPort<
       
       return result.affected || 0;
     } catch (error) {
-      logger.error('Error deleting old provider request records', LogCategory.PROVIDER, { 
+      this.logger.error('Error deleting old provider request records', { 
         olderThan, 
         error 
       });

@@ -74,5 +74,5 @@ export interface PositionModel {
   /**
    * Timestamp of when the position was last updated
    */
-  lastUpdated: string;
+  lastUpdated: Date;
 }

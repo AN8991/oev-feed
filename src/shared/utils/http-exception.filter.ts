@@ -13,7 +13,8 @@ export class HttpExceptionFilter implements ExceptionFilter {
 
     if (exception instanceof HttpException) {
       status = exception.getStatus();
-      message = exception.getResponse();
+      const response = exception.getResponse();
+      message = typeof response === 'string' ? response : JSON.stringify(response);
     } else if (exception instanceof Error) {
       message = exception.message;
     }

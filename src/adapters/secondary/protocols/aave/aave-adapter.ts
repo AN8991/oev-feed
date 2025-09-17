@@ -7,7 +7,12 @@ export class AaveProtocolAdapter implements ProtocolAdapterPort {
   public async initialize(): Promise<void> {
     throw new Error('Method not implemented');
   }
-  public async fetchUserPositions(userAddress: string): Promise<PositionModel[]> {
+  public async fetchUserPositions(params: {
+    userAddresses: string[];
+    filterCriteria?: any;
+    startTimestamp?: number;
+    endTimestamp?: number;
+  }): Promise<PositionModel[]> {
     throw new Error('Method not implemented');
   }
   public async getHealthFactor(userAddress: string): Promise<string> {

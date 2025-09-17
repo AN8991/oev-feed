@@ -6,8 +6,10 @@
 
 // Mapper for transforming between Aave Position DTOs and domain models
 import { PositionModel } from '@domain/models/position.model';
+import { RiskAssessmentModel, RiskCalculator, AssetPosition } from '@domain/models/risk.model';
 import { AavePositionDTO } from '../dto/aave-position.dto';
 import { normalizeAddress } from '@domain/utils/address-utils';
+import { v4 as uuidv4 } from 'uuid';
 
 export class AavePositionMapper {
   /**
@@ -16,9 +18,8 @@ export class AavePositionMapper {
    * @returns Domain position model
    */
   public static toDomain(dto: AavePositionDTO): PositionModel {
-    // Use assetAddress if present, otherwise fallback to assetSymbol
-    const assetKey = dto.assetAddress?.toLowerCase?.() || dto.assetSymbol?.toLowerCase?.() || 'unknown';
-    const id = `${normalizeAddress(dto.userAddress ?? '')}-${assetKey}-${dto.protocol ?? 'aave-v3'}-${dto.network ?? 'ethereum'}`;
+    // Generate simple UUID for position ID
+    const id = uuidv4();
 
     // Convert Wei amounts to human-readable token units using simple division
     const decimals = dto.assetDecimals ?? 18;
@@ -54,7 +55,7 @@ export class AavePositionMapper {
       healthFactor: healthFactor.replace(/\.$/, ''),
       liquidationThreshold: dto.liquidationThreshold ?? '0',
       ltv: dto.ltv ?? '0',
-      lastUpdated: String(dto.lastUpdated ?? Date.now()),
+      lastUpdated: new Date(dto.lastUpdated ?? Date.now()),
     };
   }
 
@@ -65,5 +66,60 @@ export class AavePositionMapper {
    */
   public static toDomainList(dtos: AavePositionDTO[]): PositionModel[] {
     return dtos.map(dto => this.toDomain(dto));
+  }
+
+  /**
+   * Create risk assessment from Aave position DTO
+   * @param dto Aave position data transfer object
+   * @returns Risk assessment model
+   */
+  public static toRiskAssessment(dto: AavePositionDTO): RiskAssessmentModel {
+    const positionId = `${normalizeAddress(dto.userAddress ?? '')}-${dto.protocol ?? 'aave-v3'}-${dto.network ?? 'ethereum'}`;
+    
+    // Convert supplied assets (collateral)
+    const suppliedAssets: AssetPosition[] = [{
+      symbol: dto.assetSymbol ?? '',
+      address: dto.assetAddress ?? '',
+      amount: dto.aTokenBalance ?? '0',
+      valueUSD: dto.collateralETH ?? '0', // Using ETH value as USD placeholder
+      valueETH: dto.collateralETH ?? '0'
+    }];
+
+    // Convert borrowed assets (debt)
+    const borrowedAssets: AssetPosition[] = [];
+    const totalDebt = (parseFloat(dto.stableDebt ?? '0') + parseFloat(dto.variableDebt ?? '0')).toString();
+    
+    if (parseFloat(totalDebt) > 0) {
+      borrowedAssets.push({
+        symbol: dto.assetSymbol ?? '',
+        address: dto.assetAddress ?? '',
+        amount: totalDebt,
+        valueUSD: dto.debtETH ?? '0', // Using ETH value as USD placeholder
+        valueETH: dto.debtETH ?? '0'
+      });
+    }
+
+    return RiskCalculator.createRiskAssessment(
+      normalizeAddress(dto.userAddress ?? ''),
+      dto.protocol ?? 'aave-v3',
+      dto.network ?? 'ethereum',
+      positionId,
+      suppliedAssets,
+      borrowedAssets,
+      dto.healthFactor ?? '0',
+      dto.liquidationThreshold ?? '0',
+      dto.ltv ?? '0',
+      dto.collateralETH ?? '0', // Total collateral USD
+      dto.debtETH ?? '0' // Total debt USD
+    );
+  }
+
+  /**
+   * Create risk assessments from multiple Aave position DTOs
+   * @param dtos Array of Aave position DTOs
+   * @returns Array of risk assessment models
+   */
+  public static toRiskAssessmentList(dtos: AavePositionDTO[]): RiskAssessmentModel[] {
+    return dtos.map(dto => this.toRiskAssessment(dto));
   }
 }

@@ -27,7 +27,7 @@ OEV Feed tracks user positions across multiple DeFi lending protocols, providing
 - **Protocol-agnostic architecture** - Easy integration of new protocols
 - **Provider redundancy** - Alchemy/Infura fallback mechanisms
 - **Comprehensive testing** - Unit tests + blockchain integration tests
-- **Event-driven infrastructure** - Circuit breakers, health monitoring, request distribution
+- **Modernized logging** - NestJS built-in Logger across all components
 - **GraphQL & REST APIs** - Flexible data access patterns
 - **WebSocket support** - Real-time position updates
 
@@ -37,7 +37,7 @@ OEV Feed tracks user positions across multiple DeFi lending protocols, providing
 - **Domain Layer** - Protocol-agnostic business logic and models
 - **Application Layer** - Query orchestration, DTOs, mappers
 - **Adapter Layer** - Protocol adapters, database adapters, provider adapters
-- **Infrastructure Layer** - Circuit breakers, health monitoring, logging
+- **Infrastructure Layer** - Health monitoring, request distribution, NestJS Logger
 
 ## 🛠️ Tech Stack
 
@@ -155,8 +155,8 @@ src/
 │   └── secondary/     # External service adapters
 └── infrastructure/     # Infrastructure utilities
     ├── config/        # Configuration management
-    ├── logging/       # Structured logging
-    └── monitoring/    # Health monitoring
+    ├── utils/         # Health monitoring, request distribution (NestJS Logger)
+    └── services/      # Infrastructure services
 
 scripts/                # Integration tests and utilities
 test/                  # Unit tests
@@ -188,7 +188,8 @@ npm run verify:contracts # Verify smart contract addresses
 - **Path Aliases** - Uses TypeScript path aliases (`@domain/*`, `@adapters/*`) for clean imports
 - **Provider Fallback** - Automatic failover between Alchemy and Infura
 - **Protocol Abstraction** - New protocols can be added without changing core business logic
-- **Event-Driven Design** - Resilient infrastructure with circuit breakers and health monitoring
+- **Modernized Logging** - NestJS Logger integration across all components
+- **Simplified Infrastructure** - Streamlined utilities with health monitoring and request distribution
 
 ## 📚 Documentation
 

@@ -1,15 +1,13 @@
-/**
+ /**
  * Provider Health Monitor
  * 
- * Part of the infrastructure layer in hexagonal architecture
- * Monitors the health of blockchain providers and provides metrics for provider selection
+ * Monitors the health of provider adapters by performing periodic health checks
+ * and maintaining health status information.
  */
-
-import { ProviderAdapterPort, ProviderStats } from '@domain/ports/secondary/provider-adapter.port';
+import { Injectable, Logger } from '@nestjs/common';
+import { ProviderAdapterPort, ProviderStats } from '../../domain/ports/secondary/provider-adapter.port';
 import { ProviderFactory } from '@adapters/secondary/providers/provider-factory';
 import { ProviderType } from '@domain/enums/provider-type.enum';
-import { logger, LogCategory, LogLevel } from './structured-logger';
-import { metrics, ProviderMetric } from './metrics-collector';
 
 /**
  * Provider health status
@@ -91,64 +89,62 @@ export interface ProviderHealthThresholds {
   maxResponseTime: number;
   
   /**
+   * Minimum acceptable success rate (0-1)
+   * Default: 0.95 (95%)
+   */
+  minSuccessRate: number;
+  
+  /**
+   * Maximum acceptable error rate (0-1)
+   * Default: 0.05 (5%)
+   */
+  maxErrorRate: number;
+  
+  /**
    * Maximum acceptable failure rate (0-1)
    * Default: 0.05 (5%)
    */
   maxFailureRate: number;
   
   /**
-   * Minimum acceptable rate limit remaining ratio (0-1)
+   * Minimum acceptable rate limit ratio (0-1)
    * Default: 0.1 (10%)
    */
   minRateLimitRatio: number;
   
   /**
    * Health check interval in milliseconds
-   * Default: 60000ms (1 minute)
+   * Default: 30000ms (30 seconds)
    */
   healthCheckIntervalMs: number;
 }
 
-/**
- * Provider health monitor class
- */
+@Injectable()
 export class ProviderHealthMonitor {
-  private static instance: ProviderHealthMonitor;
+  private readonly logger = new Logger(ProviderHealthMonitor.name);
   private healthCheckResults: Map<string, ProviderHealthCheckResult> = new Map();
   private healthCheckInterval: NodeJS.Timeout | null = null;
   private readonly defaultThresholds: ProviderHealthThresholds = {
     maxResponseTime: 500,
+    minSuccessRate: 0.95,
+    maxErrorRate: 0.05,
     maxFailureRate: 0.05,
     minRateLimitRatio: 0.1,
-    healthCheckIntervalMs: 60000
+    healthCheckIntervalMs: 30000 // 30 seconds
   };
-  private thresholds: ProviderHealthThresholds;
+  
+  private readonly thresholds: ProviderHealthThresholds;
+  private readonly providers: Map<string, Map<string, ProviderAdapterPort>> = new Map();
   
   /**
    * Constructor
-   * @param thresholds Provider health thresholds
    */
-  private constructor(thresholds?: Partial<ProviderHealthThresholds>) {
-    this.thresholds = {
-      ...this.defaultThresholds,
-      ...thresholds
-    };
+  constructor(private readonly providerFactory: ProviderFactory) {
+    this.thresholds = { ...this.defaultThresholds };
     
-    logger.info('Provider health monitor initialized', LogCategory.PROVIDER, {
-      thresholds: this.thresholds
-    });
+    this.logger.log(`Provider health monitor initialized with thresholds: ${JSON.stringify(this.thresholds)}`);
   }
   
-  /**
-   * Get provider health monitor instance (singleton)
-   * @param thresholds Provider health thresholds
-   */
-  public static getInstance(thresholds?: Partial<ProviderHealthThresholds>): ProviderHealthMonitor {
-    if (!ProviderHealthMonitor.instance) {
-      ProviderHealthMonitor.instance = new ProviderHealthMonitor(thresholds);
-    }
-    return ProviderHealthMonitor.instance;
-  }
   
   /**
    * Start health check interval
@@ -162,10 +158,7 @@ export class ProviderHealthMonitor {
       await this.checkAllProviders();
     }, this.thresholds.healthCheckIntervalMs);
     
-    logger.info(
-      `Started provider health monitoring (interval: ${this.thresholds.healthCheckIntervalMs}ms)`,
-      LogCategory.PROVIDER
-    );
+    this.logger.log(`Started provider health monitoring (interval: ${this.thresholds.healthCheckIntervalMs}ms)`);
   }
   
   /**
@@ -176,7 +169,7 @@ export class ProviderHealthMonitor {
       clearInterval(this.healthCheckInterval);
       this.healthCheckInterval = null;
       
-      logger.info('Stopped provider health monitoring', LogCategory.PROVIDER);
+      this.logger.log('Stopped provider health monitoring');
     }
   }
   
@@ -186,12 +179,12 @@ export class ProviderHealthMonitor {
   public async checkAllProviders(): Promise<void> {
     try {
       // Get all available networks
-      const networks = ProviderFactory.getAvailableNetworks();
+      const networks = this.providerFactory.getAvailableNetworks();
       
       // Check health for each network and provider
       for (const network of networks) {
         // Get provider instances for this network
-        const providers = ProviderFactory.getProvidersForNetwork(network);
+        const providers = this.providerFactory.getProvidersForNetwork(network);
         
         // Check health for each provider
         for (const [providerType, provider] of Object.entries(providers)) {
@@ -211,25 +204,14 @@ export class ProviderHealthMonitor {
             // Record result
             this.recordHealthCheckResult(result);
             
-            // Record metrics
-            this.recordHealthMetrics(result);
+            // Health check completed successfully
           } catch (error) {
-            logger.error(
-              `Failed to check health for provider ${providerType} on ${network}`,
-              LogCategory.PROVIDER,
-              {},
-              error instanceof Error ? error : new Error(String(error))
-            );
+            this.logger.error(`Failed to check health for provider ${providerType} on ${network}: ${error instanceof Error ? error.message : String(error)}`);
           }
         }
       }
     } catch (error) {
-      logger.error(
-        'Failed to check provider health',
-        LogCategory.PROVIDER,
-        {},
-        error instanceof Error ? error : new Error(String(error))
-      );
+      this.logger.error(`Failed to check provider health: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
   
@@ -361,79 +343,37 @@ export class ProviderHealthMonitor {
     // Store result
     this.healthCheckResults.set(key, result);
     
-    // Log result
-    const logLevel = this.getLogLevelForHealthStatus(result.status);
-    logger.log(
-      logLevel,
-      `Provider health check: ${result.provider} (${result.providerType}) on ${result.network} - ${result.status} (score: ${result.score})`,
-      LogCategory.PROVIDER,
-      {
-        provider: result.provider,
-        providerType: result.providerType,
-        network: result.network,
-        status: result.status,
-        score: result.score,
-        responseTime: result.responseTime,
-        blockNumber: result.blockNumber,
-        rateLimit: result.rateLimit,
-        error: result.error
-      }
-    );
-  }
-  
-  /**
-   * Record health metrics
-   * @param result Health check result
-   */
-  private recordHealthMetrics(result: ProviderHealthCheckResult): void {
-    const tags = {
+    // Log result based on health status
+    const message = `Provider health check: ${result.provider} (${result.providerType}) on ${result.network} - ${result.status} (score: ${result.score})`;
+    const details = {
       provider: result.provider,
-      provider_type: result.providerType,
+      providerType: result.providerType,
       network: result.network,
-      status: result.status
+      status: result.status,
+      score: result.score,
+      responseTime: result.responseTime,
+      blockNumber: result.blockNumber,
+      rateLimit: result.rateLimit,
+      error: result.error
     };
     
-    // Record health status
-    metrics.recordGauge(ProviderMetric.PROVIDER_HEALTH, result.score, tags);
-    
-    // Record block height if available
-    if (result.blockNumber !== undefined) {
-      metrics.recordGauge(ProviderMetric.BLOCK_HEIGHT, result.blockNumber, tags);
-    }
-    
-    // Record rate limit if available
-    if (result.rateLimit) {
-      metrics.recordGauge(
-        ProviderMetric.RATE_LIMIT_REMAINING,
-        result.rateLimit.remaining,
-        tags
-      );
-      
-      metrics.recordGauge(
-        ProviderMetric.RATE_LIMIT_RESET,
-        result.rateLimit.resetTimestamp,
-        tags
-      );
+    switch (result.status) {
+      case ProviderHealthStatus.HEALTHY:
+        this.logger.debug(`${message} - ${JSON.stringify(details)}`);
+        break;
+      case ProviderHealthStatus.DEGRADED:
+        this.logger.warn(`${message} - ${JSON.stringify(details)}`);
+        break;
+      case ProviderHealthStatus.UNHEALTHY:
+        this.logger.error(`${message} - ${JSON.stringify(details)}`);
+        break;
+      default:
+        this.logger.log(`${message} - ${JSON.stringify(details)}`);
+        break;
     }
   }
   
-  /**
-   * Get log level for health status
-   * @param status Health status
-   * @returns Log level
-   */
-  private getLogLevelForHealthStatus(status: ProviderHealthStatus): LogLevel {
-    switch (status) {
-      case ProviderHealthStatus.HEALTHY:
-        return LogLevel.DEBUG;
-      case ProviderHealthStatus.DEGRADED:
-        return LogLevel.WARN;
-      case ProviderHealthStatus.UNHEALTHY:
-        return LogLevel.ERROR;
-      default:
-        return LogLevel.INFO;
-    }
-  }
+  
   
   /**
    * Get health check result for a specific provider
@@ -477,5 +417,6 @@ export class ProviderHealthMonitor {
   }
 }
 
-// Export singleton instance
-export const providerHealthMonitor = ProviderHealthMonitor.getInstance();
+// Note: ProviderHealthMonitor is now an injectable service
+// Use dependency injection to get an instance instead of this static export
+// This export is removed to enforce proper DI usage

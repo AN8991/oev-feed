@@ -2,47 +2,76 @@ import { IsString, IsNotEmpty, IsOptional, IsNumberString } from 'class-validato
 
 export class PositionDto {
   @IsString()
-  id: string;
+  id: string = '';
 
   @IsString()
-  userAddress: string;
+  userAddress: string = '';
 
   @IsString()
-  protocol: string;
+  protocol: string = '';
 
   @IsString()
-  asset: string;
+  network: string = '';
+
+  @IsString()
+  assetAddress: string = '';
+
+  @IsString()
+  assetSymbol: string = '';
 
   @IsNumberString()
-  amount: string;
+  collateralAmount: string = '0';
 
   @IsNumberString()
-  healthFactor: string;
+  collateralAmountUSD: string = '0';
+
+  @IsNumberString()
+  debtAmount: string = '0';
+
+  @IsNumberString()
+  debtAmountUSD: string = '0';
+
+  @IsNumberString()
+  healthFactor: string = '0';
+
+  @IsString()
+  liquidationThreshold: string = '0';
+
+  @IsString()
+  ltv: string = '0';
 
   @IsNotEmpty()
-  updatedAt: Date;
+  updatedAt: Date = new Date();
 }
 
 export class CreatePositionDto {
   @IsString()
   @IsNotEmpty()
-  userAddress: string;
+  userAddress: string = '';
 
   @IsString()
   @IsNotEmpty()
-  protocol: string;
+  protocol: string = '';
 
   @IsString()
   @IsNotEmpty()
-  asset: string;
+  network: string = '';
+
+  @IsString()
+  @IsNotEmpty()
+  assetAddress: string = '';
+
+  @IsString()
+  @IsNotEmpty()
+  assetSymbol: string = '';
 
   @IsNumberString()
   @IsNotEmpty()
-  amount: string;
+  collateralAmount: string = '0';
 
   @IsNumberString()
   @IsNotEmpty()
-  healthFactor: string;
+  healthFactor: string = '0';
 }
 
 export class UpdatePositionDto {

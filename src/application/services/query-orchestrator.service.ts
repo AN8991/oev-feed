@@ -4,20 +4,23 @@
  * Layer: Application
  */
 
-import { ProtocolAdapterPort } from '@domain/ports/secondary';
-import { PositionModel } from '@domain/models/position.model';
-import { PositionFilterCriteria } from '@domain/types/position-filter.type';
-import { ProtocolQueryParameters, QueryOrchestratorPort, QueryResult, QueryMetadata, PositionQueryResult } from '@domain/ports/primary/query-orchestrator.port';
+import { Injectable, Logger } from '@nestjs/common';
+import { ProtocolAdapterPort } from '../../domain/ports/secondary/protocol-adapter.port';
+import { PositionModel } from '../../domain/models/position.model';
+import { PositionFilterCriteria } from '../../domain/types/position-filter.type';
+import { ProtocolQueryParameters, QueryOrchestratorPort, QueryResult, QueryMetadata, PositionQueryResult } from '../../domain/ports/primary/query-orchestrator.port';
 import { ProtocolAdapterFactory } from '../../adapters/secondary/protocols/protocol-adapter-factory';
-import { logger } from '@infrastructure/utils/structured-logger';
-import { TimeRangeUtils } from '@infrastructure/utils/time-range.utils';
-import { TimeRange } from '@domain/types/query-parameters';
+import { TimeService } from '../../infrastructure/services/time.service';
+import { TimeRange } from '../../domain/types/query-parameters';
 
 /**
  * Service for orchestrating queries across multiple protocols
  * Implements the QueryOrchestratorPort primary port
  */
+@Injectable()
 export class QueryOrchestratorService implements QueryOrchestratorPort {
+  private readonly logger = new Logger(QueryOrchestratorService.name);
+  
   // Map of protocol+network to adapter
   private adapters: Map<string, ProtocolAdapterPort> = new Map();
   
@@ -27,10 +30,12 @@ export class QueryOrchestratorService implements QueryOrchestratorPort {
   
   /**
    * Constructor
-   * @param adapterFactory Factory for creating protocol adapters
+   * @param timeService Injectable time service for standardized time calculations
+   * @param adapterFactory Injectable factory for creating protocol adapters
    */
   constructor(
-    private readonly adapterFactory: typeof ProtocolAdapterFactory = ProtocolAdapterFactory
+    private readonly timeService: TimeService,
+    private readonly adapterFactory: ProtocolAdapterFactory
   ) {}
   
   /**
@@ -52,13 +57,15 @@ export class QueryOrchestratorService implements QueryOrchestratorPort {
     
     if (params.timeRange) {
       try {
-        const timeRange = TimeRangeUtils.calculateTimeRange(
+        const timeRange = this.timeService.calculateTimeRange(
           params.timeRange, 
           params.fromTimestamp, 
           params.toTimestamp
         );
         startTimestamp = timeRange.startTimestamp;
         endTimestamp = timeRange.endTimestamp;
+        
+        this.logger.log(`Time range calculated: ${timeRange.description}`);
       } catch (error) {
         throw new Error(`Invalid time range: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
@@ -98,7 +105,7 @@ export class QueryOrchestratorService implements QueryOrchestratorPort {
           return result;
         }).catch(error => {
           const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-          logger.error(`Error querying ${protocol}/${network}:`, error);
+          this.logger.error(`Error querying ${protocol}/${network}: ${errorMessage}`);
           
           metadata.protocols.push({
             protocol,
@@ -152,8 +159,12 @@ export class QueryOrchestratorService implements QueryOrchestratorPort {
     let adapter = this.adapters.get(adapterKey);
     
     if (!adapter) {
-      adapter = this.adapterFactory.createAdapter(protocol, network);
-      this.adapters.set(adapterKey, adapter);
+      adapter = this.adapterFactory.createAdapter(protocol, network, {});
+      if (adapter) {
+        this.adapters.set(adapterKey, adapter);
+      } else {
+        throw new Error(`Failed to create adapter for ${protocol}/${network}`);
+      }
     }
     
     // Fetch positions
@@ -207,24 +218,22 @@ export class QueryOrchestratorService implements QueryOrchestratorPort {
         // Get or create adapter
         const adapter = await this.getAdapter(protocol, network);
         
-        // Initialize adapter if needed
-        if (!adapter.initialized) {
-          await adapter.initialize();
-        }
+        // Initialize adapter
+        await adapter.initialize();
         
         // Fetch health factor
-        logger.info(`Querying health factor for ${userAddress} on ${protocol}/${network}`);
+        this.logger.log(`Querying health factor for ${userAddress} on ${protocol}/${network}`);
         const healthFactor = await adapter.getHealthFactor(userAddress);
         
         // Add to result map
         healthFactors.set(adapterKey, healthFactor);
         
-        logger.info(`Health factor on ${protocol}/${network}: ${healthFactor}`);
+        this.logger.log(`Health factor on ${protocol}/${network}: ${healthFactor}`);
         
         return { success: true, protocol, network };
       } catch (error) {
         // Log error
-        logger.error(`Error querying health factor for ${protocol}/${network}:`, error);
+        this.logger.error(`Error querying health factor for ${protocol}/${network}: ${error instanceof Error ? error.message : String(error)}`);
         
         // Set default value for failed queries
         healthFactors.set(adapterKey, '0');
@@ -266,7 +275,7 @@ export class QueryOrchestratorService implements QueryOrchestratorPort {
       
       return adapter;
     } catch (error) {
-      logger.error(`Error creating adapter for ${protocol}/${network}:`, error);
+      this.logger.error(`Error creating adapter for ${protocol}/${network}: ${error instanceof Error ? error.message : String(error)}`);
       throw new Error(`Failed to create adapter for ${protocol}/${network}: ${error instanceof Error ? error.message : String(error)}`);
     }
   }

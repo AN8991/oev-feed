@@ -3,20 +3,20 @@ import { IsString, IsNotEmpty, IsDate } from 'class-validator';
 export class EventDto {
   @IsString()
   @IsNotEmpty()
-  id: string;
+  id: string = '';
 
   @IsString()
   @IsNotEmpty()
-  type: string;
+  type: string = '';
 
   @IsString()
   @IsNotEmpty()
-  positionId: string;
+  positionId: string = '';
 
   @IsString()
   @IsNotEmpty()
-  description: string;
+  description: string = '';
 
   @IsDate()
-  timestamp: Date;
+  timestamp: Date = new Date();
 }

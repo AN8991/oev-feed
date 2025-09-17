@@ -1,6 +1,6 @@
 import { PositionModel } from '../../models/position.model';
-import { PositionFilterCriteria } from '@domain/types/position-filter.type';
-import { TimeRange } from '@domain/types/query-parameters';
+import { PositionFilterCriteria } from '../../types/position-filter.type';
+import { TimeRange } from '../../types/query-parameters';
 
 /**
  * Parameters for querying user positions across protocols

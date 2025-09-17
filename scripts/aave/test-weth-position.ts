@@ -16,17 +16,19 @@ async function testWETHPosition() {
   console.log('\n' + '='.repeat(50));
 
   try {
-    // Create adapter with Alchemy RPC
-    const alchemyUrl = `https://eth-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`;
+    // Create adapter with Infura RPC (switched from Alchemy due to timeout issues)
+    const infuraUrl = `https://mainnet.infura.io/v3/${process.env.INFURA_API_KEY}`;
     const config = {
       poolAddress: process.env.AAVE_V3_ETHEREUM_POOL!,
       dataProviderAddress: process.env.AAVE_V3_ETHEREUM_DATA_PROVIDER!,
       oracleAddress: process.env.AAVE_V3_ETHEREUM_ORACLE!,
-      providerUrl: alchemyUrl
+      providerUrl: infuraUrl
     };
 
     console.log('1. Creating and initializing adapter...');
-    const adapter = ProtocolAdapterFactory.createAdapter('aave-v3', 'ethereum', config);
+    // Note: ProtocolAdapterFactory is now injectable, create instance directly for testing
+    const factory = new ProtocolAdapterFactory();
+    const adapter = factory.createAdapter('aave-v3', 'ethereum', config);
     await adapter.initialize();
     console.log('   ✅ Adapter initialized');
 

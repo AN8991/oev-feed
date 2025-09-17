@@ -1,19 +1,19 @@
-import { Repository, Between, MoreThanOrEqual } from 'typeorm';
+import { Injectable, Logger } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { ProviderHealth } from '../entities/provider-health.entity';
-import { AppDataSource } from '@infrastructure/config';
-import { logger, LogCategoryger, LogCategory } from '@infrastructure/utils';
-import { ProviderHealthRepositoryPort } from '@domain/ports/secondary';
-
 /**
- * Repository for ProviderHealth entity operations
- * Implements the ProviderHealthRepositoryPort from the domain layer
+ * Repository service for ProviderHealth entity operations
+ * Simplified to use direct TypeORM without port abstraction
  */
-export class ProviderHealthRepository implements ProviderHealthRepositoryPort<ProviderHealth> {
-  private repository: Repository<ProviderHealth>;
+@Injectable()
+export class ProviderHealthRepository {
+  private readonly logger = new Logger(ProviderHealthRepository.name);
 
-  constructor() {
-    this.repository = AppDataSource.getRepository(ProviderHealth);
-  }
+  constructor(
+    @InjectRepository(ProviderHealth)
+    private readonly repository: Repository<ProviderHealth>,
+  ) {}
 
   /**
    * Find or create provider health record
@@ -45,7 +45,7 @@ export class ProviderHealthRepository implements ProviderHealthRepositoryPort<Pr
 
       return health;
     } catch (error) {
-      logger.error('Error finding or creating provider health record', LogCategory.PROVIDER, { 
+      this.logger.error('Finding or creating provider health record', { 
         providerId, 
         network, 
         error 
@@ -77,7 +77,7 @@ export class ProviderHealthRepository implements ProviderHealthRepositoryPort<Pr
       
       return await this.repository.save(health);
     } catch (error) {
-      logger.error('Error updating provider health', LogCategory.PROVIDER, { 
+      this.logger.log('Updating provider health status', { 
         providerId, 
         network, 
         updates, 
@@ -120,7 +120,7 @@ export class ProviderHealthRepository implements ProviderHealthRepositoryPort<Pr
         uptime: newUptime
       });
     } catch (error) {
-      logger.error('Error recording provider success', LogCategory.PROVIDER, { 
+      this.logger.error('Error recording provider success', { 
         providerId, 
         network, 
         responseTime, 
@@ -164,7 +164,7 @@ export class ProviderHealthRepository implements ProviderHealthRepositoryPort<Pr
         uptime: newUptime
       });
     } catch (error) {
-      logger.error('Error recording provider error', LogCategory.PROVIDER, { 
+      this.logger.error('Error recording provider error', { 
         providerId, 
         network, 
         isRateLimit, 
@@ -193,7 +193,7 @@ export class ProviderHealthRepository implements ProviderHealthRepositoryPort<Pr
         }
       });
     } catch (error) {
-      logger.error('Error getting healthy providers', LogCategory.PROVIDER, { 
+      this.logger.error('Error getting healthy providers', { 
         network, 
         error 
       });
@@ -219,7 +219,7 @@ export class ProviderHealthRepository implements ProviderHealthRepositoryPort<Pr
         metrics: {}
       });
     } catch (error) {
-      logger.error('Error resetting provider health', LogCategory.PROVIDER, { 
+      this.logger.error('Error resetting provider health', { 
         providerId, 
         network, 
         error 

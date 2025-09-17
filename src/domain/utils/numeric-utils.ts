@@ -5,8 +5,11 @@
  * Provides utilities for handling and formatting numeric values related to blockchain data
  */
 
-// Import the required functions directly from ethers
-import { formatUnits } from 'ethers';
+import { Logger } from '@nestjs/common';
+
+// Using ethers utilities - require approach works with current setup
+const { formatUnits, parseUnits } = require('ethers');
+const logger = new Logger('NumericUtils');
 
 /**
  * Formats a BigInt, string, or number value to Ether units
@@ -21,15 +24,11 @@ export function formatToEther(value: bigint | string | number | null | undefined
   }
 
   try {
-    // Convert string or number to BigInt if needed
-    const bigIntValue = typeof value === 'bigint' 
-      ? value 
-      : BigInt(value.toString());
-    
-    return formatUnits(bigIntValue, 18);
+    // Use ethers formatUnits for proper wei to ether conversion
+    return formatUnits(value.toString(), 18);
   } catch (error) {
     // If conversion fails, return '0'
-    console.error('Error formatting value to Ether:', error);
+    logger.error('Error formatting value to Ether:', error);
     return '0';
   }
 }
@@ -64,8 +63,8 @@ export function formatHealthFactor(
     // Handle BigInt or string representing a BigInt
     const healthFactorBigInt = BigInt(healthFactorStr);
     
-    // Format using ethers.js
-    const formattedHealthFactor = formatUnits(healthFactorBigInt, 18);
+    // Use ethers formatUnits for proper wei to ether conversion
+    const formattedHealthFactor = formatUnits(healthFactorBigInt.toString(), 18);
     
     // Parse as float for comparison and formatting
     const numericValue = parseFloat(formattedHealthFactor);
@@ -78,7 +77,7 @@ export function formatHealthFactor(
     // Format with 4 decimal places
     return numericValue.toFixed(4);
   } catch (error) {
-    console.error('Error formatting health factor:', error);
+    logger.error('Error formatting health factor:', error);
     return '0';
   }
 }

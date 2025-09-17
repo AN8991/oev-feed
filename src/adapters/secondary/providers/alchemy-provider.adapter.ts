@@ -1,7 +1,7 @@
 import { JsonRpcProvider } from 'ethers';
 import { ProviderAdapterPort, ProviderStats, RateLimitStatus } from '@domain/ports/secondary/provider-adapter.port';
 import { BaseProviderAdapter } from './base-provider.adapter';
-import { logger, LogCategory, LogContext } from '@infrastructure/utils/structured-logger';
+import { Logger } from '@nestjs/common';
 
 /**
  * Alchemy provider adapter configuration
@@ -43,6 +43,7 @@ export interface AlchemyProviderConfig {
  * Implements the provider adapter port for Alchemy
  */
 export class AlchemyProviderAdapter extends BaseProviderAdapter implements ProviderAdapterPort {
+
   /**
    * Provider name
    */
@@ -170,12 +171,10 @@ export class AlchemyProviderAdapter extends BaseProviderAdapter implements Provi
       // Test provider
       await this.testProvider();
       
-      logger.info(`Initialized Alchemy provider for ${this._network}`);
+      this.logger.log(`Initialized Alchemy provider for ${this._network}`);
     } catch (error: unknown) {
-      logger.error(
-        `Failed to initialize Alchemy provider for ${this._network}:`,
-        LogCategory.PROVIDER,
-        { error: error instanceof Error ? error.message : String(error) }
+      this.logger.error(
+        `Failed to initialize Alchemy provider for ${this._network}: ${error instanceof Error ? error.message : String(error)}`
       );
       throw new Error(
         `Failed to initialize Alchemy provider: ${error instanceof Error ? error.message : String(error)}`

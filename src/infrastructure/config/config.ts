@@ -1,143 +1,287 @@
 import * as dotenv from 'dotenv';
 import { join } from 'path';
-import { z } from 'zod';
+import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
+import { ConfigService as NestConfigService } from '@nestjs/config';
+import { validate } from 'class-validator';
+import { IsString, IsNumber, IsBoolean, IsOptional, Min, Max, Length, IsIn } from 'class-validator';
+import { Transform } from 'class-transformer';
 
 // Load environment variables from .env file in project root, fallback to process.cwd()
 dotenv.config({ path: join(process.cwd(), '.env') });
 
-// DEBUG: Print the DATABASE_URL and working directory before exporting config
-console.log('DEBUG: process.env.DATABASE_URL =', process.env.DATABASE_URL);
-console.log('DEBUG: process.cwd() =', process.cwd());
+/**
+ * Database configuration class
+ */
+export class DatabaseConfig {
+  @IsString()
+  @IsOptional()
+  host: string = 'localhost';
+
+  @IsNumber()
+  @Min(1)
+  @Max(65535)
+  @Transform(({ value }) => parseInt(value, 10) || 5432)
+  port: number = 5432;
+
+  @IsString()
+  @IsOptional()
+  username: string = 'postgres';
+
+  @IsString()
+  @IsOptional()
+  password: string = 'postgres';
+
+  @IsString()
+  @IsOptional()
+  name: string = 'oev_feed';
+
+  @IsBoolean()
+  @Transform(({ value }) => value === 'true')
+  synchronize: boolean = false;
+
+  @IsBoolean()
+  @Transform(({ value }) => value === 'true')
+  logging: boolean = false;
+}
 
 /**
- * Configuration schema using Zod for validation
+ * Provider configuration classes
  */
-const ConfigSchema = z.object({
-  environment: z.string().default('development'),
-  logLevel: z.string().default('info'),
-  database: z.object({
-    host: z.string().default('localhost'),
-    port: z.number().default(5432),
-    username: z.string().default('postgres'),
-    password: z.string().default('postgres'),
-    name: z.string().default('oev_feed'),
-    synchronize: z.boolean().default(false),
-    logging: z.boolean().default(false)
-  }),
-  providers: z.object({
-    alchemy: z.object({
-      apiKey: z.string().min(5, 'API key must be at least 5 characters long').default(''),
-      networks: z.record(z.string()).default({}),
-      rateLimit: z.number().default(100)
-    }),
-    infura: z.object({
-      apiKey: z.string().min(5, 'API key must be at least 5 characters long').default(''),
-      networks: z.record(z.string()).default({}),
-      rateLimit: z.number().default(100)
-    })
-  }),
-  metrics: z.object({
-    enabled: z.boolean().default(false),
-    port: z.number().default(9090)
-  })
-});
+export class AlchemyConfig {
+  @IsString()
+  @Length(5, 100)
+  @IsOptional()
+  apiKey: string = '';
+
+  @IsOptional()
+  networks: Record<string, string> = {};
+
+  @IsNumber()
+  @Min(1)
+  @Max(10000)
+  @Transform(({ value }) => parseInt(value, 10) || 100)
+  rateLimit: number = 100;
+}
+
+export class InfuraConfig {
+  @IsString()
+  @Length(5, 100)
+  @IsOptional()
+  apiKey: string = '';
+
+  @IsOptional()
+  networks: Record<string, string> = {};
+
+  @IsNumber()
+  @Min(1)
+  @Max(10000)
+  @Transform(({ value }) => parseInt(value, 10) || 100)
+  rateLimit: number = 100;
+}
+
+export class ProvidersConfig {
+  alchemy: AlchemyConfig = new AlchemyConfig();
+  infura: InfuraConfig = new InfuraConfig();
+}
 
 /**
- * Configuration type derived from the schema
+ * Metrics configuration class
  */
-export type Config = z.infer<typeof ConfigSchema>;
+export class MetricsConfig {
+  @IsBoolean()
+  @Transform(({ value }) => value === 'true')
+  enabled: boolean = false;
+
+  @IsNumber()
+  @Min(1000)
+  @Max(65535)
+  @Transform(({ value }) => parseInt(value, 10) || 9090)
+  port: number = 9090;
+}
 
 /**
- * Unified Configuration Service
- * Combines features from the old config.ts and env.ts
+ * Main configuration class
  */
-class ConfigService {
-  private static instance: ConfigService;
+export class Config {
+  @IsString()
+  @IsIn(['development', 'production', 'test', 'staging'])
+  @IsOptional()
+  environment: string = 'development';
+
+  @IsString()
+  @IsIn(['error', 'warn', 'info', 'debug', 'verbose'])
+  @IsOptional()
+  logLevel: string = 'info';
+
+  @IsString()
+  @IsOptional()
+  nodeEnv: string = 'development';
+
+  @IsNumber()
+  @IsOptional()
+  @Min(1000)
+  @Max(65535)
+  port: number = 3000;
+
+  database: DatabaseConfig = new DatabaseConfig();
+  providers: ProvidersConfig = new ProvidersConfig();
+  metrics: MetricsConfig = new MetricsConfig();
+}
+
+/**
+ * Core Configuration Service using NestJS and class-validator
+ * Handles application-level configuration (database, environment, logging, metrics)
+ */
+@Injectable()
+export class ConfigService implements OnModuleInit {
+  private readonly logger = new Logger(ConfigService.name);
   private config: Config;
   
-  // API key validation regex patterns
+  // API key validation regex patterns (moved to provider config service)
   private apiKeyFormats: Record<string, RegExp> = {
-    Alchemy: /^[A-Za-z0-9_-]{32}$/,  // 32 character alphanumeric key
-    Infura: /^[0-9a-f]{32}$/,        // 32 character hexadecimal key
-    Etherscan: /^[A-Z0-9]{10}$/,     // 10 character alphanumeric key
     GraphStudio: /^[A-Za-z0-9]{36}$/ // 36 character alphanumeric key
   };
 
-  private constructor() {
-    // Parse environment variables with validation
+  constructor(private readonly nestConfigService: NestConfigService) {
     this.config = this.parseConfig();
+    this.logger.debug(`DATABASE_URL: ${process.env.DATABASE_URL}`);
+    this.logger.debug(`Working directory: ${process.cwd()}`);
   }
 
   /**
-   * Get singleton instance
+   * Validate configuration on module initialization
    */
-  public static getInstance(): ConfigService {
-    if (!ConfigService.instance) {
-      ConfigService.instance = new ConfigService();
+  async onModuleInit(): Promise<void> {
+    const result = await validate(this.config);
+    if (result.length > 0) {
+      throw new Error(
+        `Configuration validation failed: ${JSON.stringify(
+          result.map((v) => ({
+            property: v.property,
+            constraints: v.constraints,
+          })),
+          null,
+          2
+        )}`
+      );
     }
-    return ConfigService.instance;
   }
 
   /**
    * Parse and validate configuration from environment variables
    */
   private parseConfig(): Config {
-    try {
-      return ConfigSchema.parse({
-        environment: process.env.NODE_ENV,
-        logLevel: process.env.LOG_LEVEL,
-        database: {
-          host: process.env.DB_HOST,
-          port: process.env.DB_PORT ? parseInt(process.env.DB_PORT, 10) : undefined,
-          username: process.env.DB_USERNAME,
-          password: process.env.DB_PASSWORD,
-          name: process.env.DB_NAME,
-          synchronize: process.env.DB_SYNCHRONIZE === 'true',
-          logging: process.env.DB_LOGGING === 'true'
-        },
-        providers: {
-          alchemy: {
-            apiKey: process.env.ALCHEMY_API_KEY,
-            networks: {
-              mainnet: process.env.ALCHEMY_MAINNET_URL || '',
-              goerli: process.env.ALCHEMY_GOERLI_URL || '',
-              sepolia: process.env.ALCHEMY_SEPOLIA_URL || ''
-            },
-            rateLimit: process.env.ALCHEMY_RATE_LIMIT ? parseInt(process.env.ALCHEMY_RATE_LIMIT, 10) : undefined
-          },
-          infura: {
-            apiKey: process.env.INFURA_API_KEY || process.env.INFURA_PROJECT_ID,
-            networks: {
-              mainnet: process.env.INFURA_MAINNET_URL || '',
-              goerli: process.env.INFURA_GOERLI_URL || '',
-              sepolia: process.env.INFURA_SEPOLIA_URL || ''
-            },
-            rateLimit: process.env.INFURA_RATE_LIMIT ? parseInt(process.env.INFURA_RATE_LIMIT, 10) : undefined
-          }
-        },
-        metrics: {
-          enabled: process.env.METRICS_ENABLED === 'true',
-          port: process.env.METRICS_PORT ? parseInt(process.env.METRICS_PORT, 10) : undefined
-        }
-      });
-    } catch (error) {
-      console.error('Configuration validation error:', error);
-      throw new Error('Failed to validate configuration');
-    }
+    const config = new Config();
+    
+    // Environment and logging
+    config.environment = this.nestConfigService.get<string>('NODE_ENV', 'development');
+    config.nodeEnv = this.nestConfigService.get<string>('NODE_ENV', 'development');
+    config.logLevel = this.nestConfigService.get<string>('LOG_LEVEL', 'info');
+    config.port = this.nestConfigService.get<number>('PORT', 3000);
+    
+    // Database configuration
+    config.database.host = this.nestConfigService.get<string>('DB_HOST', 'localhost');
+    config.database.port = this.nestConfigService.get<number>('DB_PORT', 5432);
+    config.database.username = this.nestConfigService.get<string>('DB_USERNAME', 'postgres');
+    config.database.password = this.nestConfigService.get<string>('DB_PASSWORD', 'postgres');
+    config.database.name = this.nestConfigService.get<string>('DB_NAME', 'oev_feed');
+    config.database.synchronize = this.nestConfigService.get<string>('DB_SYNCHRONIZE') === 'true';
+    config.database.logging = this.nestConfigService.get<string>('DB_LOGGING') === 'true';
+    
+    // Alchemy configuration
+    config.providers.alchemy.apiKey = this.nestConfigService.get<string>('ALCHEMY_API_KEY', '');
+    config.providers.alchemy.networks = {
+      mainnet: this.nestConfigService.get<string>('ALCHEMY_MAINNET_URL', ''),
+      goerli: this.nestConfigService.get<string>('ALCHEMY_GOERLI_URL', ''),
+      sepolia: this.nestConfigService.get<string>('ALCHEMY_SEPOLIA_URL', '')
+    };
+    config.providers.alchemy.rateLimit = this.nestConfigService.get<number>('ALCHEMY_RATE_LIMIT', 100);
+    
+    // Infura configuration
+    config.providers.infura.apiKey = this.nestConfigService.get<string>('INFURA_API_KEY') || 
+                                     this.nestConfigService.get<string>('INFURA_PROJECT_ID', '');
+    config.providers.infura.networks = {
+      mainnet: this.nestConfigService.get<string>('INFURA_MAINNET_URL', ''),
+      goerli: this.nestConfigService.get<string>('INFURA_GOERLI_URL', ''),
+      sepolia: this.nestConfigService.get<string>('INFURA_SEPOLIA_URL', '')
+    };
+    config.providers.infura.rateLimit = this.nestConfigService.get<number>('INFURA_RATE_LIMIT', 100);
+    
+    // Metrics configuration
+    config.metrics.enabled = this.nestConfigService.get<string>('METRICS_ENABLED') === 'true';
+    config.metrics.port = this.nestConfigService.get<number>('METRICS_PORT', 9090);
+    
+    return config;
   }
 
   /**
-   * Get the entire configuration object
+   * Get the current configuration
    */
-  public getConfig(): Config {
+  getConfig(): Config {
     return this.config;
   }
 
   /**
    * Get database configuration
    */
-  public get database() {
+  get database(): DatabaseConfig {
     return this.config.database;
+  }
+
+  /**
+   * Get providers configuration
+   */
+  get providers(): ProvidersConfig {
+    return this.config.providers;
+  }
+
+  /**
+   * Get metrics configuration
+   */
+  get metrics(): MetricsConfig {
+    return this.config.metrics;
+  }
+
+  /**
+   * Get environment
+   */
+  get environment(): string {
+    return this.config.environment;
+  }
+
+  /**
+   * Get log level
+   */
+  get logLevel(): string {
+    return this.config.logLevel;
+  }
+
+  /**
+   * Get application port
+   */
+  get port(): number {
+    return this.config.port;
+  }
+
+  /**
+   * Check if running in production
+   */
+  get isProduction(): boolean {
+    return this.config.environment === 'production';
+  }
+
+  /**
+   * Check if running in development
+   */
+  get isDevelopment(): boolean {
+    return this.config.environment === 'development';
+  }
+
+  /**
+   * Check if running in test mode
+   */
+  get isTest(): boolean {
+    return this.config.environment === 'test';
   }
 
   /**
@@ -207,12 +351,12 @@ class ConfigService {
     const apiKey = this.config.providers.alchemy.apiKey;
     
     if (!apiKey) {
-      console.warn('⚠️ Alchemy API key is missing.');
+      this.logger.warn('Alchemy API key is missing.');
       return false;
     }
 
     if (!this.validateApiKeyFormat(apiKey, 'Alchemy')) {
-      console.warn('⚠️ Invalid Alchemy API key format.');
+      this.logger.warn('Invalid Alchemy API key format.');
       return false;
     }
 
@@ -226,12 +370,12 @@ class ConfigService {
     const apiKey = this.config.providers.infura.apiKey;
     
     if (!apiKey) {
-      console.warn('⚠️ Infura API key is missing.');
+      this.logger.warn('Infura API key is missing.');
       return false;
     }
 
     if (!this.validateApiKeyFormat(apiKey, 'Infura')) {
-      console.warn('⚠️ Invalid Infura API key format.');
+      this.logger.warn('Invalid Infura API key format.');
       return false;
     }
 
@@ -245,12 +389,12 @@ class ConfigService {
     const apiKey = this.getEtherscanApiKey(false);
     
     if (!apiKey) {
-      console.warn('⚠️ Etherscan API key is not set. Contract verification may fail.');
+      this.logger.warn('Etherscan API key is not set. Contract verification may fail.');
       return false;
     }
 
     if (!this.validateApiKeyFormat(apiKey, 'Etherscan')) {
-      console.warn('⚠️ Invalid Etherscan API key format.');
+      this.logger.warn('Invalid Etherscan API key format.');
       return false;
     }
 
@@ -264,12 +408,12 @@ class ConfigService {
     const apiKey = this.getGraphStudioApiKey(false);
     
     if (!apiKey) {
-      console.warn('⚠️ The Graph Studio API key is not set. Subgraph queries may fail.');
+      this.logger.warn('The Graph Studio API key is not set. Subgraph queries may fail.');
       return false;
     }
 
     if (!this.validateApiKeyFormat(apiKey, 'GraphStudio')) {
-      console.warn('⚠️ Invalid Graph Studio API key format.');
+      this.logger.warn('Invalid Graph Studio API key format.');
       return false;
     }
 
@@ -301,50 +445,79 @@ class ConfigService {
   }
 }
 
-// Create and export the configuration service instance
-export const configService = ConfigService.getInstance();
+// Note: ConfigService is now a NestJS injectable service
+// It should be injected through dependency injection instead of using getInstance()
+// The exports below are kept for backward compatibility but should be migrated to DI
+
+// Temporary instance for backward compatibility - will be removed after migration
+let legacyConfigService: ConfigService | null = null;
+
+// Legacy export function for backward compatibility
+export const getLegacyConfigService = (): ConfigService => {
+  if (!legacyConfigService) {
+    // Create a temporary instance with a mock NestConfigService for legacy support
+    const mockNestConfigService = {
+      get: <T>(key: string, defaultValue?: T): T => {
+        const value = process.env[key];
+        if (value === undefined) return defaultValue as T;
+        
+        // Try to parse numbers
+        if (typeof defaultValue === 'number') {
+          const parsed = parseInt(value, 10);
+          return (isNaN(parsed) ? defaultValue : parsed) as T;
+        }
+        
+        return value as T;
+      }
+    } as any;
+    
+    legacyConfigService = new ConfigService(mockNestConfigService);
+  }
+  return legacyConfigService;
+};
 
 // Export the config object for backward compatibility
-export const config = configService.getConfig();
+export const config = getLegacyConfigService().getConfig();
 
 // Export ENV for backward compatibility with code using the old env.ts
 export const ENV = {
-  getInstance: () => configService,
+  getInstance: () => getLegacyConfigService(),
   getApiKey: (keyName: string) => {
+    const service = getLegacyConfigService();
     switch (keyName) {
       case 'ALCHEMY_API_KEY':
-        return configService.getAlchemyApiKey();
+        return service.getAlchemyApiKey();
       case 'INFURA_API_KEY':
-        return configService.getInfuraApiKey();
+        return service.getInfuraApiKey();
       case 'ETHERSCAN_API_KEY':
-        return configService.getEtherscanApiKey();
+        return service.getEtherscanApiKey();
       case 'GRAPH_STUDIO_API_KEY':
-        return configService.getGraphStudioApiKey();
+        return service.getGraphStudioApiKey();
       default:
         return process.env[keyName] || '';
     }
   },
   get ALCHEMY_API_KEY() {
-    return configService.getAlchemyApiKey();
+    return getLegacyConfigService().getAlchemyApiKey();
   },
   get INFURA_API_KEY() {
-    return configService.getInfuraApiKey();
+    return getLegacyConfigService().getInfuraApiKey();
   },
   get ETHERSCAN_API_KEY() {
-    return configService.getEtherscanApiKey();
+    return getLegacyConfigService().getEtherscanApiKey();
   },
   get GRAPH_STUDIO_API_KEY() {
-    return configService.getGraphStudioApiKey();
+    return getLegacyConfigService().getGraphStudioApiKey();
   },
-  validateAlchemyApiKey: () => configService.validateAlchemyApiKey(),
-  validateInfuraApiKey: () => configService.validateInfuraApiKey(),
-  validateEtherscanApiKey: () => configService.validateEtherscanApiKey(),
-  validateGraphStudioApiKey: () => configService.validateGraphStudioApiKey(),
-  validateAllApiKeys: () => configService.validateAllApiKeys(),
-  areCriticalApiKeysMissing: () => configService.areCriticalApiKeysMissing(),
-  getAlchemyApiKey: (throwOnMissing = true) => configService.getAlchemyApiKey(throwOnMissing),
-  getInfuraApiKey: (throwOnMissing = true) => configService.getInfuraApiKey(throwOnMissing),
-  getEtherscanApiKey: (throwOnMissing = true) => configService.getEtherscanApiKey(throwOnMissing),
-  getGraphStudioApiKey: (throwOnMissing = true) => configService.getGraphStudioApiKey(throwOnMissing),
-  validateApiKeyFormat: (apiKey: string, provider: string) => configService.validateApiKeyFormat(apiKey, provider)
+  validateAlchemyApiKey: () => getLegacyConfigService().validateAlchemyApiKey(),
+  validateInfuraApiKey: () => getLegacyConfigService().validateInfuraApiKey(),
+  validateEtherscanApiKey: () => getLegacyConfigService().validateEtherscanApiKey(),
+  validateGraphStudioApiKey: () => getLegacyConfigService().validateGraphStudioApiKey(),
+  validateAllApiKeys: () => getLegacyConfigService().validateAllApiKeys(),
+  areCriticalApiKeysMissing: () => getLegacyConfigService().areCriticalApiKeysMissing(),
+  getAlchemyApiKey: (throwOnMissing = true) => getLegacyConfigService().getAlchemyApiKey(throwOnMissing),
+  getInfuraApiKey: (throwOnMissing = true) => getLegacyConfigService().getInfuraApiKey(throwOnMissing),
+  getEtherscanApiKey: (throwOnMissing = true) => getLegacyConfigService().getEtherscanApiKey(throwOnMissing),
+  getGraphStudioApiKey: (throwOnMissing = true) => getLegacyConfigService().getGraphStudioApiKey(throwOnMissing),
+  validateApiKeyFormat: (apiKey: string, provider: string) => getLegacyConfigService().validateApiKeyFormat(apiKey, provider)
 };

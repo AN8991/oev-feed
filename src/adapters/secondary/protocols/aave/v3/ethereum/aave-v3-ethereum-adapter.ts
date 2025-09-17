@@ -1,17 +1,19 @@
 import { JsonRpcProvider, Contract } from 'ethers';
+import { Logger } from '@nestjs/common';
 import { ProtocolAdapterPort } from '@domain/ports/secondary/protocol-adapter.port';
 import { PositionModel } from '@domain/models/position.model';
 import { AavePositionDTO } from '@application/dto/aave-position.dto';
 import { AavePositionMapper } from '@application/mappers/aave-position.mapper';
 import { normalizeAddress } from '@domain/utils/address-utils';
 import { formatToEther } from '@domain/utils/numeric-utils';
-import { logger, LogCategory } from '@infrastructure/utils/structured-logger';
 
 /**
  * Aave V3 Protocol Adapter for Ethereum
  * Implements the ProtocolAdapterPort for interacting with Aave V3 on Ethereum
  */
 export class AaveV3EthereumAdapter implements ProtocolAdapterPort {
+  private readonly logger = new Logger(AaveV3EthereumAdapter.name);
+  
   // Protocol and network identifiers
   private readonly PROTOCOL = 'aave-v3';
   private readonly NETWORK = 'ethereum';
@@ -43,6 +45,20 @@ export class AaveV3EthereumAdapter implements ProtocolAdapterPort {
     oracleAddress: string;
     providerUrl: string;
   }) {
+    // Validate contract addresses before normalization
+    if (!config.poolAddress || config.poolAddress.trim() === '') {
+      throw new Error('AAVE_V3_ETHEREUM_POOL address is required but not configured in environment variables');
+    }
+    if (!config.dataProviderAddress || config.dataProviderAddress.trim() === '') {
+      throw new Error('AAVE_V3_ETHEREUM_DATA_PROVIDER address is required but not configured in environment variables');
+    }
+    if (!config.oracleAddress || config.oracleAddress.trim() === '') {
+      throw new Error('AAVE_V3_ETHEREUM_ORACLE address is required but not configured in environment variables');
+    }
+    if (!config.providerUrl || config.providerUrl.trim() === '') {
+      throw new Error('ETHEREUM_RPC_URL is required but not configured in environment variables');
+    }
+
     this.poolAddress = normalizeAddress(config.poolAddress);
     this.dataProviderAddress = normalizeAddress(config.dataProviderAddress);
     this.oracleAddress = normalizeAddress(config.oracleAddress);
@@ -65,7 +81,23 @@ export class AaveV3EthereumAdapter implements ProtocolAdapterPort {
         throw new Error('Provider not available');
       }
       
-      // Pool contract (V3 ABI)
+      // Test basic provider connectivity first
+      this.logger.debug('Testing RPC provider connectivity...');
+      try {
+        const blockNumberPromise = this.provider.getBlockNumber();
+        const providerTimeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('Provider connectivity timeout after 10 seconds')), 10000);
+        });
+        
+        const blockNumber = await Promise.race([blockNumberPromise, providerTimeoutPromise]);
+        this.logger.debug(`Provider working, current block: ${blockNumber}`);
+      } catch (providerError) {
+        this.logger.error('Provider connectivity test failed:', providerError);
+        throw new Error(`RPC provider connectivity failed: ${providerError instanceof Error ? providerError.message : String(providerError)}`);
+      }
+      
+      // Pool contract (V3 ABI) - Test connection first
+      this.logger.debug(`Creating pool contract with address: ${this.poolAddress}`);
       this.poolContract = new Contract(
         this.poolAddress,
         [
@@ -74,6 +106,21 @@ export class AaveV3EthereumAdapter implements ProtocolAdapterPort {
         ],
         this.provider
       );
+      
+      // Test basic connectivity by calling getReservesList (should be fast)
+      this.logger.debug('Testing pool contract connectivity...');
+      try {
+        const reservesPromise = this.poolContract.getReservesList();
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('getReservesList timeout after 10 seconds')), 10000);
+        });
+        
+        const reserves = await Promise.race([reservesPromise, timeoutPromise]);
+        this.logger.debug(`Pool contract working, found ${reserves.length} reserves`);
+      } catch (testError) {
+        this.logger.error('Pool contract test failed:', testError);
+        throw new Error(`Pool contract connectivity test failed: ${testError instanceof Error ? testError.message : String(testError)}`);
+      }
 
       // Data Provider contract (V3 ABI, no getReservesList here)
       this.dataProviderContract = new Contract(
@@ -95,9 +142,9 @@ export class AaveV3EthereumAdapter implements ProtocolAdapterPort {
       );
       
       this.initialized = true;
-      logger.info(`AaveV3EthereumAdapter initialized for ${this.PROTOCOL} on ${this.NETWORK}`, LogCategory.PROVIDER);
+      this.logger.log(`AaveV3EthereumAdapter initialized for ${this.PROTOCOL} on ${this.NETWORK}`);
     } catch (error) {
-      logger.error('Failed to initialize AaveV3EthereumAdapter:', LogCategory.PROVIDER, error instanceof Error ? error : new Error(String(error)));
+      this.logger.error('Failed to initialize AaveV3EthereumAdapter:', error instanceof Error ? error : new Error(String(error)));
       throw new Error(`Failed to initialize AaveV3EthereumAdapter: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
@@ -118,40 +165,50 @@ export class AaveV3EthereumAdapter implements ProtocolAdapterPort {
   
   /**
    * Fetch user positions from the protocol
-   * @param userAddress The user address to fetch positions for
+   * @param params Query parameters including user addresses and filters
    * @returns Array of user positions
    */
-  public async fetchUserPositions(userAddress: string): Promise<PositionModel[]> {
-    console.log('[AAVE-ADAPTER] ENTER fetchUserPositions');
+  public async fetchUserPositions(params: {
+    userAddresses: string[];
+    filterCriteria?: any;
+    startTimestamp?: number;
+    endTimestamp?: number;
+  }): Promise<PositionModel[]> {
+    this.logger.debug('Entering fetchUserPositions');
     await this.ensureInitialized();
-    console.log('[AAVE-ADAPTER] ensureInitialized complete');
-    try {
-      // Normalize address
-      userAddress = normalizeAddress(userAddress);
-      console.log('[AAVE-ADAPTER] userAddress normalized:', userAddress);
+    this.logger.debug('Adapter initialization complete');
+    
+    const allPositions: PositionModel[] = [];
+    
+    // Process each user address
+    for (const userAddress of params.userAddresses) {
+      try {
+        // Normalize address
+        const normalizedUserAddress = normalizeAddress(userAddress);
+        this.logger.debug(`User address normalized: ${normalizedUserAddress}`);
       // Get list of reserves from Pool contract
       const reserves = await this.getReservesList();
-      console.log('[AAVE-ADAPTER] Reserves:', reserves);
-      console.log('Total reserves:', reserves.length);
+      this.logger.debug(`Found ${reserves.length} reserves`);
+      //this.logger.debug(`Reserves: ${reserves.join(', ')}`);
 
       // Create DTOs for each asset
       const positionDTOs: AavePositionDTO[] = [];
       let failedAssets: string[] = [];
 
-      // Get account data for health factor, LTV, liquidation threshold
-      let accountData: any;
-      try {
-        accountData = await this.poolContract!.getUserAccountData(userAddress);
-        console.log('[AAVE-ADAPTER] accountData:', accountData);
+        // Get account data for health factor, LTV, liquidation threshold
+        let accountData: any;
+        try {
+          accountData = await this.poolContract!.getUserAccountData(normalizedUserAddress);
+        this.logger.debug(`Account data for ${normalizedUserAddress}:`);
       } catch (err) {
-        console.error('[AAVE-ADAPTER] Error fetching accountData:', err);
+        this.logger.error('Error fetching accountData:', err);
         throw err;
       }
 
       for (const assetAddress of reserves) {
         try {
           // Get user reserve data
-          const reserveData = await this.dataProviderContract!.getUserReserveData(assetAddress, userAddress);
+          const reserveData = await this.dataProviderContract!.getUserReserveData(assetAddress, normalizedUserAddress);
 
           // Get asset symbol and decimals
           let symbol: string = '', decimals: number = 18;
@@ -159,7 +216,7 @@ export class AaveV3EthereumAdapter implements ProtocolAdapterPort {
             symbol = await this.getTokenSymbol(assetAddress);
             decimals = await this.getTokenDecimals(assetAddress);
           } catch (err) {
-            console.error(`[AAVE-ADAPTER] Error fetching metadata for ${assetAddress}:`, err);
+            this.logger.error(`Error fetching metadata for ${assetAddress}:`, err);
           }
 
           // Get price
@@ -167,7 +224,7 @@ export class AaveV3EthereumAdapter implements ProtocolAdapterPort {
           try {
             price = await this.oracleContract!.getAssetPrice(assetAddress);
           } catch (err) {
-            console.error(`[AAVE-ADAPTER] Error fetching price for ${assetAddress}:`, err);
+            this.logger.error(`Error fetching price for ${assetAddress}:`, err);
           }
 
           // Check if user has any position in this asset
@@ -179,8 +236,8 @@ export class AaveV3EthereumAdapter implements ProtocolAdapterPort {
           }
 
           // Log conversion details for positions with actual balances
-          console.log(`[AAVE-ADAPTER] Processing ${symbol} position:`);
-          console.log('  aTokenBalance:', reserveData.currentATokenBalance.toString(), 'TotalDebt:', (BigInt(reserveData.currentStableDebt) + BigInt(reserveData.currentVariableDebt)).toString());
+          this.logger.debug(`Processing ${symbol} position:`);
+          this.logger.debug(`  aTokenBalance: ${reserveData.currentATokenBalance.toString()}, TotalDebt: ${(BigInt(reserveData.currentStableDebt) + BigInt(reserveData.currentVariableDebt)).toString()}`);
 
           // Calculate ETH values with proper BigInt arithmetic
           const priceInWei = BigInt(price); // Oracle price is in 8 decimals
@@ -225,27 +282,27 @@ export class AaveV3EthereumAdapter implements ProtocolAdapterPort {
             lastUpdated: Date.now()
           };
           
-          console.log(`[AAVE-ADAPTER] ✅ Created position for ${symbol} - Collateral: ${dto.aTokenBalance}, Debt: ${BigInt(dto.stableDebt) + BigInt(dto.variableDebt)}`);
+          this.logger.debug(`Created position for ${symbol} - Collateral: ${dto.aTokenBalance}, Debt: ${BigInt(dto.stableDebt) + BigInt(dto.variableDebt)}`);
           positionDTOs.push(dto);
         } catch (error) {
-          console.error(`[AAVE-ADAPTER] Error processing asset ${assetAddress}:`, error);
+          this.logger.error(`Error processing asset ${assetAddress}:`, error);
           failedAssets.push(assetAddress);
         }
       }
       if (positionDTOs.length === 0) {
-        console.warn('No positions found. Failed assets:', failedAssets);
+        this.logger.warn(`No positions found. Failed assets: ${failedAssets.join(', ')}`);
       }
-      // Map DTOs to domain models
-      return AavePositionMapper.toDomainList(positionDTOs);
-    } catch (error) {
-      logger.error('Error fetching user positions:', LogCategory.PROVIDER, error instanceof Error ? error : new Error(String(error)));
-      console.error('Error fetching user positions (outer catch):', error);
-      // Print full error stack if available
-      if (error instanceof Error && error.stack) {
-        console.error('Full error stack:', error.stack);
+        // Map DTOs to domain models
+        const userPositions = AavePositionMapper.toDomainList(positionDTOs);
+        allPositions.push(...userPositions);
+      } catch (error) {
+        this.logger.error(`Error fetching positions for user ${userAddress}:`, error instanceof Error ? error : new Error(String(error)));
+        // Error already logged above with this.logger.error
+        // Continue with next user address
       }
-      throw new Error(`Failed to fetch user positions: ${error instanceof Error ? error.message : String(error)}`);
     }
+    
+    return allPositions;
   }
   
   /**
@@ -259,14 +316,27 @@ export class AaveV3EthereumAdapter implements ProtocolAdapterPort {
     try {
       // Normalize address
       userAddress = normalizeAddress(userAddress);
+      this.logger.debug(`Getting account data for: ${userAddress}`);
       
-      // Get account data
-      const accountData = await this.poolContract!.getUserAccountData(userAddress);
+      // Get account data with timeout
+      this.logger.debug('Calling getUserAccountData...');
+      const accountDataPromise = this.poolContract!.getUserAccountData(userAddress);
+      
+      // Add timeout to prevent hanging
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Contract call timeout after 30 seconds')), 30000);
+      });
+      
+      const accountData = await Promise.race([accountDataPromise, timeoutPromise]);
+      this.logger.debug(`Account data received - totalCollateralBase: ${accountData.totalCollateralBase.toString()}, totalDebtBase: ${accountData.totalDebtBase.toString()}, healthFactor: ${accountData.healthFactor.toString()}`);
       
       // Parse and return health factor
-      return this.parseHealthFactor(accountData.healthFactor);
+      const parsedHealthFactor = this.parseHealthFactor(accountData.healthFactor);
+      this.logger.debug(`Parsed health factor: ${parsedHealthFactor}`);
+      return parsedHealthFactor;
     } catch (error) {
-      logger.error('Error fetching health factor:', LogCategory.PROVIDER, error instanceof Error ? error : new Error(String(error)));
+      // Error already logged below with this.logger.error
+      this.logger.error('Error fetching health factor:', error instanceof Error ? error : new Error(String(error)));
       throw new Error(`Failed to fetch health factor: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
@@ -277,7 +347,7 @@ export class AaveV3EthereumAdapter implements ProtocolAdapterPort {
   public async cleanup(): Promise<void> {
     // No specific cleanup needed for ethers.js contracts
     this.initialized = false;
-    logger.info(`AaveV3EthereumAdapter cleaned up for ${this.PROTOCOL} on ${this.NETWORK}`, LogCategory.PROVIDER);
+    this.logger.log(`AaveV3EthereumAdapter cleaned up for ${this.PROTOCOL} on ${this.NETWORK}`);
   }
   
   /**
@@ -290,7 +360,7 @@ export class AaveV3EthereumAdapter implements ProtocolAdapterPort {
       const reserves = await this.poolContract!.getReservesList();
       return reserves.map((address: string) => normalizeAddress(address));
     } catch (error) {
-      logger.error('Error fetching reserves list:', LogCategory.PROVIDER, error instanceof Error ? error : new Error(String(error)));
+      this.logger.error('Error fetching reserves list:', error instanceof Error ? error : new Error(String(error)));
       throw new Error(`Failed to fetch reserves list: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
@@ -305,7 +375,7 @@ export class AaveV3EthereumAdapter implements ProtocolAdapterPort {
     try {
       return await this.dataProviderContract!.getUserReserveData(assetAddress, userAddress);
     } catch (error) {
-      logger.error(`Error fetching user reserve data for asset ${assetAddress}:`, LogCategory.PROVIDER, error instanceof Error ? error : new Error(String(error)));
+      this.logger.error(`Error fetching user reserve data for asset ${assetAddress}:`, error instanceof Error ? error : new Error(String(error)));
       throw new Error(`Failed to fetch user reserve data: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
@@ -319,7 +389,7 @@ export class AaveV3EthereumAdapter implements ProtocolAdapterPort {
     try {
       return await this.dataProviderContract!.getReserveConfigurationData(assetAddress);
     } catch (error) {
-      logger.error(`Error fetching reserve configuration for asset ${assetAddress}:`, LogCategory.PROVIDER, error instanceof Error ? error : new Error(String(error)));
+      this.logger.error(`Error fetching reserve configuration for asset ${assetAddress}:`, error instanceof Error ? error : new Error(String(error)));
       throw new Error(`Failed to fetch reserve configuration: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
@@ -338,7 +408,7 @@ export class AaveV3EthereumAdapter implements ProtocolAdapterPort {
       
       return await this.poolContract!.getEModeCategoryData(eModeId);
     } catch (error) {
-      logger.error(`Error fetching E-Mode category data for ID ${eModeId}:`, LogCategory.PROVIDER, error instanceof Error ? error : new Error(String(error)));
+      this.logger.error(`Error fetching E-Mode category data for ID ${eModeId}:`, error instanceof Error ? error : new Error(String(error)));
       return null;
     }
   }
@@ -357,7 +427,17 @@ export class AaveV3EthereumAdapter implements ProtocolAdapterPort {
       );
       return await tokenContract.symbol();
     } catch (error) {
-      logger.debug(`Error fetching token symbol for asset ${assetAddress}:`, LogCategory.PROVIDER, error instanceof Error ? error : new Error(String(error)));
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      
+      // Check for specific non-standard ERC-20 token issues
+      if (errorMessage.includes('could not decode result data')) {
+        this.logger.warn(`Non-standard ERC-20 token detected at ${assetAddress}. Token returns bytes32 instead of string for symbol() - likely legacy token like MKR. Using address fallback.`);
+      } else if (errorMessage.includes('BAD_DATA')) {
+        this.logger.warn(`Invalid symbol() response from token ${assetAddress}. Token may not implement ERC-20 standard correctly. Using address fallback.`);
+      } else {
+        this.logger.warn(`Failed to fetch symbol for token ${assetAddress}: ${errorMessage}. Using address fallback.`);
+      }
+      
       // Return shortened address as fallback
       return assetAddress.substring(0, 6) + '...' + assetAddress.substring(assetAddress.length - 4);
     }
@@ -379,7 +459,7 @@ export class AaveV3EthereumAdapter implements ProtocolAdapterPort {
       // Convert BigInt to number to prevent BigInt/number mixing errors
       return Number(decimals);
     } catch (error) {
-      logger.debug(`Error fetching token decimals for asset ${assetAddress}:`, LogCategory.PROVIDER, error instanceof Error ? error : new Error(String(error)));
+      this.logger.debug(`Error fetching token decimals for asset ${assetAddress}:`, error instanceof Error ? error : new Error(String(error)));
       // Return default decimals as fallback
       return 18;
     }
@@ -391,7 +471,10 @@ export class AaveV3EthereumAdapter implements ProtocolAdapterPort {
    * @returns Formatted health factor
    */
   private parseHealthFactor(healthFactor: any): string {
+    this.logger.debug(`parseHealthFactor input: ${healthFactor}, type: ${typeof healthFactor}`);
+    
     if (!healthFactor || healthFactor === '0') {
+      this.logger.debug('Health factor is 0 or falsy');
       return '0';
     }
     
@@ -401,27 +484,31 @@ export class AaveV3EthereumAdapter implements ProtocolAdapterPort {
         ? healthFactor 
         : BigInt(healthFactor.toString());
 
-      // Check for max uint256 value, which often indicates uninitialized state
+      this.logger.debug(`Health factor as BigInt: ${healthFactorBigInt.toString()}`);
+
+      // Check for max uint256 value, which often indicates no debt (infinite health factor)
       const MAX_UINT256 = BigInt('0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff');
       const HALF_MAX_UINT256 = MAX_UINT256 / BigInt(2);
 
-      // If health factor is extremely large, return 0
+      // If health factor is extremely large, it means no debt (infinite health factor)
       if (healthFactorBigInt >= HALF_MAX_UINT256) {
-        logger.warn('Extremely large health factor detected, likely uninitialized', LogCategory.PROVIDER);
-        return '0';
+        this.logger.debug('Extremely large health factor detected, returning MAX');
+        return 'MAX';
       }
 
-      // Format health factor with 18 decimal places
-      return formatToEther(healthFactorBigInt);
+      // Use simple division instead of formatToEther to avoid potential issues
+      const healthFactorNumber = Number(healthFactorBigInt) / Math.pow(10, 18);
+      const result = healthFactorNumber.toFixed(4);
+      this.logger.debug(`Calculated health factor: ${result}`);
+      return result;
     } catch (error) {
-      logger.error('Error parsing health factor:', LogCategory.PROVIDER, error instanceof Error ? error : new Error(String(error)));
+      // Error already logged below with this.logger.error
+      this.logger.error('Error parsing health factor:', error instanceof Error ? error : new Error(String(error)));
       
       // If we can't parse, try to return a reasonable value
       if (typeof healthFactor === 'string') {
-        // If it's already a string, just return it
         return healthFactor;
       } else {
-        // Convert to string as a fallback
         return String(healthFactor);
       }
     }
@@ -443,7 +530,7 @@ export class AaveV3EthereumAdapter implements ProtocolAdapterPort {
       
       return percentage.toFixed(2);
     } catch (error) {
-      logger.error('Error formatting percentage:', LogCategory.PROVIDER, error instanceof Error ? error : new Error(String(error)));
+      this.logger.error('Error formatting percentage:', error instanceof Error ? error : new Error(String(error)));
       return '0';
     }
   }

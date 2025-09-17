@@ -3,19 +3,19 @@ import { IsString, IsNotEmpty, IsDate, IsNumber } from 'class-validator';
 export class ProviderDto {
   @IsString()
   @IsNotEmpty()
-  name: string;
+  name: string = '';
 
   @IsString()
   @IsNotEmpty()
-  network: string;
+  network: string = '';
 
   @IsString()
   @IsNotEmpty()
-  status: string;
+  status: string = '';
 
   @IsDate()
-  lastChecked: Date;
+  lastChecked: Date = new Date();
 
   @IsNumber()
-  healthScore: number;
+  healthScore: number = 0;
 }

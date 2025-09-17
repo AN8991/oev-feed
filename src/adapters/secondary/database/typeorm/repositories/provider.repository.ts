@@ -1,19 +1,19 @@
+import { Injectable, Logger } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Provider } from '../entities/provider.entity';
-import { AppDataSource } from '@infrastructure/config';
-import { logger, LogCategoryger, LogCategory } from '@infrastructure/utils';
-import { ProviderRepositoryPort } from '@domain/ports/secondary';
-
 /**
- * Repository for Provider entity operations
- * Implements the ProviderRepositoryPort from the domain layer
+ * Repository service for Provider entity operations
+ * Simplified to use direct TypeORM without port abstraction
  */
-export class ProviderRepository implements ProviderRepositoryPort<Provider> {
-  private repository: Repository<Provider>;
+@Injectable()
+export class ProviderRepository {
+  private readonly logger = new Logger(ProviderRepository.name);
 
-  constructor() {
-    this.repository = AppDataSource.getRepository(Provider);
-  }
+  constructor(
+    @InjectRepository(Provider)
+    private readonly repository: Repository<Provider>,
+  ) {}
 
   /**
    * Find all providers
@@ -30,7 +30,7 @@ export class ProviderRepository implements ProviderRepositoryPort<Provider> {
       
       return await query.orderBy('provider.priority', 'DESC').getMany();
     } catch (error) {
-      logger.error('Error finding providers', LogCategory.DATABASE, { isActive, error });
+      this.logger.error('Error finding providers', { isActive, error });
       throw error;
     }
   }
@@ -44,7 +44,7 @@ export class ProviderRepository implements ProviderRepositoryPort<Provider> {
     try {
       return await this.repository.findOneBy({ id });
     } catch (error) {
-      logger.error('Error finding provider by ID', LogCategory.DATABASE, { id, error });
+      this.logger.error('Error finding provider by ID', { id, error });
       throw error;
     }
   }
@@ -58,7 +58,7 @@ export class ProviderRepository implements ProviderRepositoryPort<Provider> {
     try {
       return await this.repository.findOneBy({ name });
     } catch (error) {
-      logger.error('Error finding provider by name', LogCategory.DATABASE, { name, error });
+      this.logger.error('Error finding provider by name', { name, error });
       throw error;
     }
   }
@@ -73,7 +73,7 @@ export class ProviderRepository implements ProviderRepositoryPort<Provider> {
       const provider = this.repository.create(data);
       return await this.repository.save(provider);
     } catch (error) {
-      logger.error('Error creating provider', LogCategory.DATABASE, { data, error });
+      this.logger.error('Error creating provider', { data, error });
       throw error;
     }
   }
@@ -93,7 +93,7 @@ export class ProviderRepository implements ProviderRepositoryPort<Provider> {
       }
       return updated;
     } catch (error) {
-      logger.error('Error updating provider', LogCategory.DATABASE, { id, data, error });
+      this.logger.error('Error updating provider', { id, data, error });
       throw error;
     }
   }
@@ -108,7 +108,7 @@ export class ProviderRepository implements ProviderRepositoryPort<Provider> {
       const result = await this.repository.delete(id);
       return result.affected !== null && result.affected !== undefined && result.affected > 0;
     } catch (error) {
-      logger.error('Error deleting provider', LogCategory.DATABASE, { id, error });
+      this.logger.error('Error deleting provider', { id, error });
       throw error;
     }
   }

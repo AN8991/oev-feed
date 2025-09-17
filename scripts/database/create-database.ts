@@ -1,4 +1,4 @@
-const { Client } = require('pg');
+import { Client } from 'pg';
 
 async function createDatabase() {
   // First connect to the default postgres database

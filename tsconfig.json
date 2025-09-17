@@ -40,11 +40,11 @@
     "useDefineForClassFields": false
   },
   "include": [
-    "src/**/*",
-    "scripts/**/*",
-    ".next/types/**/*.ts"
+    "src/**/*.ts",
+    "scripts/**/*.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "dist"
   ]
 }
