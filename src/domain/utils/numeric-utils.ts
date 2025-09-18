@@ -6,9 +6,8 @@
  */
 
 import { Logger } from '@nestjs/common';
+import { formatUnits, parseUnits } from 'ethers';
 
-// Using ethers utilities - require approach works with current setup
-const { formatUnits, parseUnits } = require('ethers');
 const logger = new Logger('NumericUtils');
 
 /**

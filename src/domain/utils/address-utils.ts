@@ -5,8 +5,8 @@
  * Provides utilities for handling Ethereum addresses
  */
 
-// Import from ethers directly - this is the correct import for ethers v6
-// import { getAddress } from 'ethers'; // ethers v6 import issue
+// Import from ethers v6 - now working with proper type definitions
+import { getAddress, isAddress } from 'ethers';
 
 /**
  * Normalize an Ethereum address to ensure proper checksum format
@@ -20,12 +20,18 @@ export function normalizeAddress(address: string | undefined | null): string {
     return '';
   }
   
-  // Simplified address validation due to ethers v6 import issues
-  const trimmed = address.trim();
-  if (!/^0x[a-fA-F0-9]{40}$/.test(trimmed)) {
+  try {
+    const trimmed = address.trim();
+    // Use ethers isAddress for proper validation
+    if (!isAddress(trimmed)) {
+      return '';
+    }
+    // Use ethers getAddress for proper checksum formatting
+    return getAddress(trimmed);
+  } catch (error) {
+    // If ethers validation fails, return empty string
     return '';
   }
-  return trimmed;
 }
 
 /**
@@ -36,12 +42,19 @@ export function normalizeAddress(address: string | undefined | null): string {
  */
 export function normalizeAddressChecksum(address: string): string {
   if (!address) return '';
-  // Simplified address validation due to ethers v6 import issues
-  const trimmed = address.trim();
-  if (!/^0x[a-fA-F0-9]{40}$/.test(trimmed)) {
+  
+  try {
+    const trimmed = address.trim();
+    // Use ethers isAddress for proper validation
+    if (!isAddress(trimmed)) {
+      return address.toLowerCase();
+    }
+    // Use ethers getAddress for proper checksum formatting
+    return getAddress(trimmed);
+  } catch (error) {
+    // If ethers validation fails, return lowercase
     return address.toLowerCase();
   }
-  return trimmed;
 }
 
 /**
