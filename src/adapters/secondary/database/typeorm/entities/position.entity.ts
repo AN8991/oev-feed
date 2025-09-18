@@ -1,16 +1,15 @@
 // TypeORM entity for Position
-import { Entity, PrimaryColumn, Column } from 'typeorm';
-// import { UserEntity } from './user.entity';
+import { Entity, PrimaryColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
+import { UserEntity } from './user.entity';
 
 @Entity('positions')
 export class PositionEntity {
   @PrimaryColumn()
   id!: string;
 
-  // Temporarily commented out to resolve circular dependency
-  // @ManyToOne(() => UserEntity, user => user.positions, { onDelete: 'CASCADE', nullable: true })
-  // @JoinColumn({ name: 'user_id' })
-  // user?: UserEntity;
+  @ManyToOne(() => UserEntity, user => user.positions, { onDelete: 'CASCADE', nullable: true })
+  @JoinColumn({ name: 'user_id' })
+  user?: UserEntity;
 
   @Column()
   userAddress!: string;

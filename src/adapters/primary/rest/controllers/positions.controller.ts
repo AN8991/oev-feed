@@ -1,5 +1,5 @@
 import { Controller, Get, Post, Body, Param, Query } from '@nestjs/common';
-import { PositionsService } from '../../../../domain/services/positions.service';
+import { PositionsService } from '../../../../application/services/positions.service';
 
 @Controller('positions')
 export class PositionsController {

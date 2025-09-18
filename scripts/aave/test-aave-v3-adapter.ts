@@ -24,7 +24,7 @@ import { PositionModel } from '@domain/models/position.model';
 import { TypeORMAdapter } from '@adapters/secondary/database/typeorm/typeorm-adapter';
 import { DatabasePort } from '@domain/ports/secondary/database.port';
 import { RiskAssessmentService } from '@application/services/risk-assessment.service';
-import { PositionsService } from '@domain/services/positions.service';
+import { PositionsService } from '@application/services/positions.service';
 import { RiskCalculator, AssetPosition } from '@domain/models/risk.model';
 import { UserProtocolPosition, Protocol } from '@domain/types/protocols';
 import { Network } from '@domain/types/networks';

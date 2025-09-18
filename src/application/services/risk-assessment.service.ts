@@ -12,7 +12,7 @@ import { RiskAssessmentPort } from '@domain/ports/secondary/risk-assessment.port
 import { UserProtocolPosition, Protocol } from '@domain/types/protocols';
 import { Network } from '@domain/types/networks';
 import { PositionEntity } from '../../adapters/secondary/database/typeorm/entities/position.entity';
-import { PositionsService } from '../../domain/services/positions.service';
+import { PositionsService } from './positions.service';
 
 /**
  * Application service for risk assessment operations

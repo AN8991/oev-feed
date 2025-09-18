@@ -1,7 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import { HttpExceptionFilter } from './shared/utils/http-exception.filter';
 import { ValidationPipe, Logger } from '@nestjs/common';
 
 async function bootstrap() {
@@ -11,8 +10,8 @@ async function bootstrap() {
   // Set global prefix
   app.setGlobalPrefix('api/v1.0.0');
 
-  // Use global exception filter
-  app.useGlobalFilters(new HttpExceptionFilter());
+  // Error handling is now managed by ErrorHandlingInterceptor in middleware layer
+  // No need for global exception filter - using comprehensive middleware approach
 
   // Enable global validation pipe
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }));

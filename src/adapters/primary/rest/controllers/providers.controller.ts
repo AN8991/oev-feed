@@ -2,19 +2,21 @@ import { Controller, Get, Param, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Provider } from '../../../secondary/database/typeorm/entities/provider.entity';
-import { ProviderDto } from '../../../../domain/types/provider.dto';
+import { ProviderDto } from '../../../../application/dto/provider.dto';
+import { ProviderMapper } from '../../../../application/mappers/provider.mapper';
 
 @Controller('providers')
 export class ProvidersController {
   constructor(
     @InjectRepository(Provider)
     private readonly providerRepo: Repository<Provider>,
+    private readonly providerMapper: ProviderMapper,
   ) {}
 
   @Get()
   async findAll(): Promise<ProviderDto[]> {
     const providers = await this.providerRepo.find();
-    return providers.map(provider => this.mapToDto(provider));
+    return this.providerMapper.toDtoArray(providers);
   }
 
   @Get(':name')
@@ -23,16 +25,6 @@ export class ProvidersController {
     if (!provider) {
       throw new NotFoundException('Provider not found');
     }
-    return this.mapToDto(provider);
-  }
-
-  private mapToDto(provider: Provider): ProviderDto {
-    const dto = new ProviderDto();
-    dto.name = provider.name;
-    dto.network = provider.network || 'unknown';
-    dto.status = 'active'; // Default status since not in entity
-    dto.lastChecked = new Date(); // Default to current time
-    dto.healthScore = 100; // Default health score
-    return dto;
+    return this.providerMapper.toDto(provider);
   }
 }

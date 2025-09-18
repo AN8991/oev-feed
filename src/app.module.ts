@@ -16,8 +16,8 @@ import { RiskAssessmentController } from './adapters/primary/rest/controllers/ri
 import { MiddlewareDemoController } from './adapters/primary/rest/controllers/middleware-demo.controller';
 
 // Services
-import { RiskAnalysisService } from './domain/services/risk-analysis.service';
-import { PositionsService } from './domain/services/positions.service';
+import { RiskAnalysisService } from './application/services/risk-analysis.service';
+import { PositionsService } from './application/services/positions.service';
 import { RiskAssessmentService } from './application/services/risk-assessment.service';
 import { QueryOrchestratorService } from './application/services/query-orchestrator.service';
 import { DatabaseInitService } from './domain/services/database/database-init.service';
@@ -36,6 +36,10 @@ import { ProviderRepository } from './adapters/secondary/database/typeorm/reposi
 import { ProviderRequestRepository } from './adapters/secondary/database/typeorm/repositories/provider-request.repository';
 import { ProviderHealthRepository } from './adapters/secondary/database/typeorm/repositories/provider-health.repository';
 // PositionRepository removed - using direct TypeORM Repository<PositionEntity> instead
+
+// Mappers
+import { EventMapper } from './application/mappers/event.mapper';
+import { ProviderMapper } from './application/mappers/provider.mapper';
 
 // Protocol Adapter Module
 import { ProtocolAdapterModule } from './adapters/secondary/protocols/protocol-adapter.module';
@@ -149,6 +153,10 @@ class AppController {
     RiskAssessmentService,
     QueryOrchestratorService,
     ProtocolAdapterFactory,
+    
+    // Mappers
+    EventMapper,
+    ProviderMapper,
     
     // Infrastructure Services
     AppConfigService,

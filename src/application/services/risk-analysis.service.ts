@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { PositionEntity } from '../../adapters/secondary/database/typeorm/entities/position.entity';
-import { RiskAssessmentModel, RiskCalculator, RiskLevel, AssetPosition } from '../models/risk.model';
+import { RiskAssessmentModel, RiskCalculator, RiskLevel, AssetPosition } from '../../domain/models/risk.model';
 
 @Injectable()
 export class RiskAnalysisService {

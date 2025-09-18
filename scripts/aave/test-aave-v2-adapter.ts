@@ -11,7 +11,7 @@ import { TypeORMAdapter } from '@adapters/secondary/database/typeorm/typeorm-ada
 import { DatabasePort } from '@domain/ports/secondary/database.port';
 import { PositionEntity } from '@adapters/secondary/database/typeorm/entities/position.entity';
 import { RiskAssessmentService } from '@application/services/risk-assessment.service';
-import { PositionsService } from '@domain/services/positions.service';
+import { PositionsService } from '@application/services/positions.service';
 import { RiskCalculator, AssetPosition } from '@domain/models/risk.model';
 import { UserProtocolPosition, Protocol } from '@domain/types/protocols';
 import { Network } from '@domain/types/networks';

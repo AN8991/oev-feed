@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { PositionEntity } from '../../adapters/secondary/database/typeorm/entities/position.entity';
 import { ProtocolAdapterService } from '../../adapters/secondary/protocols/protocol-adapter.service';
-import { CreatePositionDto, UpdatePositionDto } from '../types/position.dto';
+import { CreatePositionDto, UpdatePositionDto } from '../dto/position.dto';
 
 @Injectable()
 export class PositionsService {

@@ -81,7 +81,7 @@ async function queryRecentPositions() {
     // Most recent entry details
     if (recentPositions.length > 0) {
       const mostRecent = recentPositions[0];
-      const mostRecentDate = new Date(parseInt(mostRecent.lastUpdated));
+      const mostRecentDate = mostRecent.lastUpdated;
       console.log(`\n🕐 MOST RECENT ENTRY:`);
       console.log(`   Saved: ${mostRecentDate.toLocaleString()}`);
       console.log(`   Protocol: ${mostRecent.protocol}`);

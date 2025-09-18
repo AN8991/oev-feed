@@ -5,7 +5,7 @@
  * Provides fallback mechanisms between different data sources
  */
 
-import { Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { DataSourceType } from '../../domain/types/data-source-type';
 
 /**
@@ -54,6 +54,7 @@ const DEFAULT_OPTIONS: DataSourceFallbackOptions = {
  * Data source fallback service
  * Handles fallback between different data sources (on-chain, subgraph, API)
  */
+@Injectable()
 export class DataSourceFallback {
   private readonly logger = new Logger(DataSourceFallback.name);
   private options: DataSourceFallbackOptions;
@@ -103,5 +104,4 @@ export class DataSourceFallback {
   
 }
 
-// Export a singleton instance for convenience
-export const dataSourceFallback = new DataSourceFallback();
+// Singleton export removed - use NestJS dependency injection instead

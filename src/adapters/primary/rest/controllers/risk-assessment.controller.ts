@@ -1,7 +1,7 @@
 import { Controller, Get, Post, Param, Body, Query, NotFoundException, BadRequestException } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiBody } from '@nestjs/swagger';
-import { RiskAnalysisService } from '../../../../domain/services/risk-analysis.service';
-import { PositionsService } from '../../../../domain/services/positions.service';
+import { RiskAnalysisService } from '../../../../application/services/risk-analysis.service';
+import { PositionsService } from '../../../../application/services/positions.service';
 import { RiskAssessmentService } from '../../../../application/services/risk-assessment.service';
 import { RiskAssessmentModel, RiskLevel } from '../../../../domain/models/risk.model';
 
