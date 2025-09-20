@@ -45,8 +45,9 @@ async function testAaveV2Adapter() {
     };
 
     // Create adapter using factory
-    // Note: ProtocolAdapterFactory is now injectable, create instance directly for testing
-    const factory = new ProtocolAdapterFactory();
+    // Note: ProtocolAdapterFactory is now injectable, create instance with mapper for testing
+    const mapper = new (require('../../src/application/mappers/aave-position.mapper').AavePositionMapper)();
+    const factory = new ProtocolAdapterFactory(mapper);
     const adapter = factory.createAdapter('aave-v2', 'ethereum', config);
 
     // Initialize adapter
@@ -99,7 +100,7 @@ async function testAaveV2Adapter() {
       
       // Calculate and persist risk assessments
       console.info('Calculating risk assessments...');
-      const positionsService = new PositionsService(positionRepository, {} as any);
+      const positionsService = new PositionsService(positionRepository, {} as any, dataSource);
       const riskAssessmentService = new RiskAssessmentService(positionRepository, positionsService);
       
       for (let i = 0; i < positions.length; i++) {

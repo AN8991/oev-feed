@@ -1,11 +1,11 @@
 import { JsonRpcProvider, Contract } from 'ethers';
 import { Logger } from '@nestjs/common';
-import { ProtocolAdapterPort } from '@domain/ports/secondary/protocol-adapter.port';
-import { PositionModel } from '@domain/models/position.model';
-import { AavePositionDTO } from '@application/dto/aave-position.dto';
-import { AavePositionMapper } from '@application/mappers/aave-position.mapper';
-import { normalizeAddressChecksum as normalizeAddress } from '@domain/utils/address-utils';
-import { formatToEther } from '@domain/utils/numeric-utils';
+import { ProtocolAdapterPort } from '../../../../../../domain/ports/secondary/protocol-adapter.port';
+import { PositionModel } from '../../../../../../domain/models/position.model';
+import { AavePositionDTO } from '../../../../../../application/dto/aave-position.dto';
+import { AavePositionMapper } from '../../../../../../application/mappers/aave-position.mapper';
+import { normalizeAddressChecksum as normalizeAddress } from '../../../../../../domain/utils/address-utils';
+import { formatToEther } from '../../../../../../domain/utils/numeric-utils';
 
 /**
  * Aave V2 Protocol Adapter for Ethereum
@@ -32,19 +32,26 @@ export class AaveV2EthereumAdapter implements ProtocolAdapterPort {
   // Provider
   private provider: JsonRpcProvider | null = null;
   
+  // Mapper
+  private mapper: AavePositionMapper | null = null;
+  
   // Initialization state
   private initialized = false;
   
   /**
    * Constructor
    * @param config Configuration with contract addresses and provider URL
+   * @param mapper AavePositionMapper instance for data transformation
    */
-  constructor(config: {
-    poolAddress: string;
-    dataProviderAddress: string;
-    oracleAddress: string;
-    providerUrl: string;
-  }) {
+  constructor(
+    config: {
+      poolAddress: string;
+      dataProviderAddress: string;
+      oracleAddress: string;
+      providerUrl: string;
+    },
+    mapper?: AavePositionMapper
+  ) {
     // Validate contract addresses before normalization
     if (!config.poolAddress || config.poolAddress.trim() === '') {
       throw new Error('AAVE_V2_ETHEREUM_POOL address is required but not configured in environment variables');
@@ -62,6 +69,9 @@ export class AaveV2EthereumAdapter implements ProtocolAdapterPort {
     this.poolAddress = normalizeAddress(config.poolAddress);
     this.dataProviderAddress = normalizeAddress(config.dataProviderAddress);
     this.oracleAddress = normalizeAddress(config.oracleAddress);
+    
+    // Set mapper (optional for backward compatibility)
+    this.mapper = mapper || null;
     
     // Create provider
     this.provider = new JsonRpcProvider(config.providerUrl);
@@ -225,7 +235,7 @@ export class AaveV2EthereumAdapter implements ProtocolAdapterPort {
       }
       
         // Map DTOs to domain models
-        const userPositions = AavePositionMapper.toDomainList(positionDTOs);
+        const userPositions = this.mapper ? this.mapper.toDomainList(positionDTOs) : [];
         allPositions.push(...userPositions);
       } catch (error) {
         this.logger.error(`Error fetching positions for user ${userAddress}:`, undefined, error instanceof Error ? error : new Error(String(error)));

@@ -26,6 +26,18 @@ export interface ProtocolAdapterPort {
   getHealthFactor(userAddress: string): Promise<string>;
 
   /**
+   * Get the protocol identifier
+   * @returns Protocol name (e.g., 'aave-v2', 'aave-v3')
+   */
+  getProtocol(): string;
+
+  /**
+   * Get the network identifier
+   * @returns Network name (e.g., 'ethereum', 'polygon')
+   */
+  getNetwork(): string;
+
+  /**
    * Clean up resources used by the adapter
    * @returns Promise resolving when cleanup is complete
    */

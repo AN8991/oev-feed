@@ -3,8 +3,6 @@
 ## Project Overview
 The OEV Feed project is a DeFi data feed service focused on tracking and monitoring user positions across various DeFi protocols. The system provides real-time position data including collateral, debt, and health factors for DeFi users.
 
-> **Status:** ✅ **Fully Operational** - NestJS application with complete REST API, risk assessment system, and database integration.
-
 ### Current Architecture (Hexagonal Architecture)
 
 The project is built as a **Hexagonal (Ports and Adapters) Architecture** with clear boundaries between core business logic and external systems, implemented using **NestJS framework** with **TypeORM** for database operations.

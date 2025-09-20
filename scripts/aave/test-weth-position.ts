@@ -26,8 +26,9 @@ async function testWETHPosition() {
     };
 
     console.log('1. Creating and initializing adapter...');
-    // Note: ProtocolAdapterFactory is now injectable, create instance directly for testing
-    const factory = new ProtocolAdapterFactory();
+    // Note: ProtocolAdapterFactory is now injectable, create instance with mapper for testing
+    const mapper = new (require('../../src/application/mappers/aave-position.mapper').AavePositionMapper)();
+    const factory = new ProtocolAdapterFactory(mapper);
     const adapter = factory.createAdapter('aave-v3', 'ethereum', config);
     await adapter.initialize();
     console.log('   ✅ Adapter initialized');

@@ -414,16 +414,14 @@ export class RiskAssessmentService implements RiskAssessmentPort {
       // Find the position in the database using user address, protocol, and network
       this.logger.debug(`Looking for position with: userAddress=${userPosition.userAddress.toLowerCase()}, protocol=${userPosition.protocol.toLowerCase()}, network=${userPosition.network.toLowerCase()}`);
       
-      const position = await this.positionRepository.findOne({
-        where: {
-          userAddress: userPosition.userAddress.toLowerCase(),
-          protocol: userPosition.protocol.toLowerCase(),
-          network: userPosition.network.toLowerCase()
-        },
-        order: {
-          lastUpdated: 'DESC'
-        }
-      });
+      // Use case-insensitive search with query builder
+      const position = await this.positionRepository
+        .createQueryBuilder('position')
+        .where('LOWER(position.userAddress) = LOWER(:userAddress)', { userAddress: userPosition.userAddress })
+        .andWhere('LOWER(position.protocol) = LOWER(:protocol)', { protocol: userPosition.protocol })
+        .andWhere('LOWER(position.network) = LOWER(:network)', { network: userPosition.network })
+        .orderBy('position.lastUpdated', 'DESC')
+        .getOne();
 
       this.logger.debug(`Found position: ${position ? position.id : 'null'}`);
 

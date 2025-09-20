@@ -1,7 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ProtocolAdapterPort } from '@domain/ports/secondary/protocol-adapter.port';
+import { ProtocolAdapterPort } from '../../../domain/ports/secondary/protocol-adapter.port';
 import { AaveV2EthereumAdapter } from './aave/v2/ethereum/aave-v2-ethereum-adapter';
 import { AaveV3EthereumAdapter } from './aave/v3/ethereum/aave-v3-ethereum-adapter';
+import { AavePositionMapper } from '../../../application/mappers/aave-position.mapper';
 
 /**
  * Injectable factory for creating protocol adapters
@@ -13,6 +14,8 @@ export class ProtocolAdapterFactory {
   
   // Cache of created adapters
   private readonly adapters: Map<string, ProtocolAdapterPort> = new Map();
+  
+  constructor(private readonly aavePositionMapper: AavePositionMapper) {}
   
   /**
    * Create a protocol adapter for the specified protocol and network
@@ -43,10 +46,10 @@ export class ProtocolAdapterFactory {
     try {
       switch (key) {
         case 'aave-v2-ethereum':
-          adapter = new AaveV2EthereumAdapter(config);
+          adapter = new AaveV2EthereumAdapter(config, this.aavePositionMapper);
           break;
         case 'aave-v3-ethereum':
-          adapter = new AaveV3EthereumAdapter(config);
+          adapter = new AaveV3EthereumAdapter(config, this.aavePositionMapper);
           break;
         // Add more cases for other protocols and networks
         // case 'aave-v3-base':

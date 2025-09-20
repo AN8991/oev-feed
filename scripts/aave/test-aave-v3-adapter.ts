@@ -16,21 +16,21 @@ process.on('unhandledRejection', (reason, promise) => {
  */
 import { config } from 'dotenv';
 config();
-import { ProtocolAdapterFactory } from '@adapters/secondary/protocols/protocol-adapter-factory';
+import { ProtocolAdapterFactory } from '../../src/adapters/secondary/protocols/protocol-adapter-factory';
 import { Logger } from '@nestjs/common';
 
 const logger = new Logger('TestAaveV3Adapter');
-import { PositionModel } from '@domain/models/position.model';
-import { TypeORMAdapter } from '@adapters/secondary/database/typeorm/typeorm-adapter';
-import { DatabasePort } from '@domain/ports/secondary/database.port';
-import { RiskAssessmentService } from '@application/services/risk-assessment.service';
-import { PositionsService } from '@application/services/positions.service';
-import { RiskCalculator, AssetPosition } from '@domain/models/risk.model';
-import { UserProtocolPosition, Protocol } from '@domain/types/protocols';
-import { Network } from '@domain/types/networks';
+import { PositionModel } from '../../src/domain/models/position.model';
+import { TypeORMAdapter } from '../../src/adapters/secondary/database/typeorm/typeorm-adapter';
+import { DatabasePort } from '../../src/domain/ports/secondary/database.port';
+import { RiskAssessmentService } from '../../src/application/services/risk-assessment.service';
+import { PositionsService } from '../../src/application/services/positions.service';
+import { RiskCalculator, AssetPosition } from '../../src/domain/models/risk.model';
+import { UserProtocolPosition, Protocol } from '../../src/domain/types/protocols';
+import { Network } from '../../src/domain/types/networks';
 // PositionRepository removed - using direct TypeORM Repository<PositionEntity> instead
-import { PositionEntity } from '@adapters/secondary/database/typeorm/entities/position.entity';
-import { UserEntity } from '@adapters/secondary/database/typeorm/entities/user.entity';
+import { PositionEntity } from '../../src/adapters/secondary/database/typeorm/entities/position.entity';
+import { UserEntity } from '../../src/adapters/secondary/database/typeorm/entities/user.entity';
 import { DataSource } from 'typeorm';
 
 // Load environment variables
@@ -118,8 +118,22 @@ async function testAaveV3Adapter() {
     console.log('   Config:', config);
 
     console.log('4. Creating and initializing adapter...');
-    // Note: ProtocolAdapterFactory is now injectable, create instance directly for testing
-    const factory = new ProtocolAdapterFactory();
+    // Note: ProtocolAdapterFactory is now injectable, need to create with mock logger
+    const mockLogger = {
+      log: (message: string) => console.log(`[Factory] ${message}`),
+      error: (message: string, error?: any) => console.error(`[Factory] ${message}`, error),
+      warn: (message: string) => console.warn(`[Factory] ${message}`),
+      debug: (message: string) => console.log(`[Factory Debug] ${message}`),
+    };
+    
+    // Create mapper instance for testing
+    const mapper = new (require('../../src/application/mappers/aave-position.mapper').AavePositionMapper)();
+    
+    // Create factory instance with mapper for testing
+    const factory = new ProtocolAdapterFactory(mapper);
+    // Manually set the logger property (for testing only)
+    (factory as any).logger = mockLogger;
+    
     const adapter = factory.createAdapter('aave-v3', 'ethereum', config);
     await adapter.initialize();
     console.log('   ✅ Adapter initialized');
@@ -200,7 +214,7 @@ async function testAaveV3Adapter() {
           // Calculate and persist risk assessments
           console.log('\n8. Calculating risk assessments...');
           const positionRepository = dataSource.getRepository(PositionEntity);
-          const positionsService = new PositionsService(positionRepository, {} as any);
+          const positionsService = new PositionsService(positionRepository, {} as any, dataSource);
           const riskAssessmentService = new RiskAssessmentService(positionRepository, positionsService);
           
           for (let i = 0; i < positions.length; i++) {
@@ -209,10 +223,12 @@ async function testAaveV3Adapter() {
             
             try {
               // Convert PositionModel to UserProtocolPosition
+              console.log(`   🔍 Position details: protocol=${position.protocol}, network=${position.network}, userAddress=${position.userAddress}`);
+              
               const userPosition: UserProtocolPosition = {
                 userAddress: position.userAddress,
-                protocol: 'aave-v3' as any, // Use the exact protocol string from database
-                network: 'ethereum' as any, // Use the exact network string from database
+                protocol: position.protocol as any, // Use the exact protocol string from the position
+                network: position.network as any, // Use the exact network string from the position
                 version: 'v3',
                 collateral: position.collateralAmount,
                 debt: position.debtAmount,
@@ -259,10 +275,33 @@ async function testAaveV3Adapter() {
           console.log(`   ✅ Retrieved ${savedPositions.length} positions from database`);
           
           // Query positions with risk data
+          console.log(`   🔍 Searching for positions with userAddress: ${TEST_USER_ADDRESS.toLowerCase()}`);
+          
           const positionsWithRisk = await positionRepository.find({
             where: { userAddress: TEST_USER_ADDRESS.toLowerCase() },
-            order: { riskScore: 'DESC' }
+            order: { lastUpdated: 'DESC' }
           });
+          
+          console.log(`   🔍 Found ${positionsWithRisk.length} positions with risk data`);
+          
+          // Also try to find all positions for this user (case insensitive)
+          const allUserPositions = await positionRepository
+            .createQueryBuilder('position')
+            .where('LOWER(position.userAddress) = LOWER(:userAddress)', { userAddress: TEST_USER_ADDRESS })
+            .getMany();
+          
+          console.log(`   🔍 Found ${allUserPositions.length} total positions for user (case insensitive)`);
+          
+          if (allUserPositions.length > 0) {
+            console.log(`   🔍 Sample position data:`, {
+              userAddress: allUserPositions[0].userAddress,
+              protocol: allUserPositions[0].protocol,
+              network: allUserPositions[0].network,
+              riskScore: allUserPositions[0].riskScore,
+              riskLevel: allUserPositions[0].riskLevel,
+              riskAssessedAt: allUserPositions[0].riskAssessedAt
+            });
+          }
           
           await dataSource.destroy();
           

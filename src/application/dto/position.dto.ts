@@ -5,18 +5,23 @@ export class PositionDto {
   id: string = '';
 
   @IsString()
+  @IsNotEmpty()
   userAddress: string = '';
 
   @IsString()
+  @IsNotEmpty()
   protocol: string = '';
 
   @IsString()
+  @IsNotEmpty()
   network: string = '';
 
   @IsString()
+  @IsNotEmpty()
   assetAddress: string = '';
 
   @IsString()
+  @IsNotEmpty()
   assetSymbol: string = '';
 
   @IsNumberString()

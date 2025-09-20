@@ -5,43 +5,44 @@
  */
 
 // Mapper for transforming between Aave Position DTOs and domain models
-import { PositionModel } from '@domain/models/position.model';
-import { RiskAssessmentModel, RiskCalculator, AssetPosition } from '@domain/models/risk.model';
+import { Injectable, Logger } from '@nestjs/common';
+import { PositionModel } from '../../domain/models/position.model';
+import { RiskAssessmentModel, RiskCalculator, AssetPosition } from '../../domain/models/risk.model';
 import { AavePositionDTO } from '../dto/aave-position.dto';
-import { normalizeAddress } from '@domain/utils/address-utils';
+import { normalizeAddress } from '../../domain/utils/address-utils';
+import { formatUnits } from 'ethers';
 import { v4 as uuidv4 } from 'uuid';
 
+@Injectable()
 export class AavePositionMapper {
+  private readonly logger = new Logger(AavePositionMapper.name);
   /**
    * Map from Aave-specific DTO to domain model
    * @param dto Aave position data transfer object
    * @returns Domain position model
    */
-  public static toDomain(dto: AavePositionDTO): PositionModel {
-    // Generate simple UUID for position ID
-    const id = uuidv4();
+  public toDomain(dto: AavePositionDTO): PositionModel {
+    try {
+      // Generate simple UUID for position ID
+      const id = uuidv4();
+      console.log(`\n🚨 AavePositionMapper.toDomain() generated UUID: ${id}`);
 
-    // Convert Wei amounts to human-readable token units using simple division
-    const decimals = dto.assetDecimals ?? 18;
-    const divisor = Math.pow(10, decimals);
+      // Use ethers formatUnits for proper token amount conversion
+      const decimals = dto.assetDecimals ?? 18;
 
-    // Convert collateral from Wei to human-readable units (e.g., ETH)
-    const collateralAmountWei = parseFloat(dto.aTokenBalance ?? '0');
-    const collateralAmount = (collateralAmountWei / divisor).toFixed(8).replace(/\.?0+$/, '');
+      // Convert collateral from Wei to human-readable units using ethers
+      const collateralAmount = this.formatTokenAmount(dto.aTokenBalance ?? '0', decimals);
 
-    // Calculate and convert debt amount from Wei to human-readable units
-    const stableDebtWei = parseFloat(dto.stableDebt ?? '0');
-    const variableDebtWei = parseFloat(dto.variableDebt ?? '0');
-    const debtAmountWei = stableDebtWei + variableDebtWei;
-    const debtAmount = (debtAmountWei / divisor).toFixed(8).replace(/\.?0+$/, '');
+      // Calculate and convert debt amount from Wei to human-readable units
+      const stableDebt = parseFloat(dto.stableDebt ?? '0');
+      const variableDebt = parseFloat(dto.variableDebt ?? '0');
+      const totalDebt = (stableDebt + variableDebt).toString();
+      const debtAmount = this.formatTokenAmount(totalDebt, decimals);
 
-    // Convert health factor from raw (with 18 decimals) to human-readable
-    const healthFactorWei = parseFloat(dto.healthFactor ?? '0');
-    const healthFactor = healthFactorWei > 0 ?
-      (healthFactorWei / Math.pow(10, 18)).toFixed(6).replace(/\.?0+$/, '')
-      : '0';
+      // Convert health factor from raw (with 18 decimals) to human-readable using ethers
+      const healthFactor = this.formatHealthFactor(dto.healthFactor ?? '0');
 
-    return {
+      return {
       id,
       userAddress: normalizeAddress(dto.userAddress ?? ''),
       protocol: dto.protocol ?? 'aave-v3',
@@ -57,6 +58,10 @@ export class AavePositionMapper {
       ltv: dto.ltv ?? '0',
       lastUpdated: new Date(dto.lastUpdated ?? Date.now()),
     };
+    } catch (error) {
+      this.logger.error('Error mapping Aave position to domain model:', error);
+      throw new Error(`Failed to map Aave position: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
 
   /**
@@ -64,7 +69,7 @@ export class AavePositionMapper {
    * @param dtos Array of Aave position DTOs
    * @returns Array of domain position models
    */
-  public static toDomainList(dtos: AavePositionDTO[]): PositionModel[] {
+  public toDomainList(dtos: AavePositionDTO[]): PositionModel[] {
     return dtos.map(dto => this.toDomain(dto));
   }
 
@@ -73,7 +78,7 @@ export class AavePositionMapper {
    * @param dto Aave position data transfer object
    * @returns Risk assessment model
    */
-  public static toRiskAssessment(dto: AavePositionDTO): RiskAssessmentModel {
+  public toRiskAssessment(dto: AavePositionDTO): RiskAssessmentModel {
     const positionId = `${normalizeAddress(dto.userAddress ?? '')}-${dto.protocol ?? 'aave-v3'}-${dto.network ?? 'ethereum'}`;
     
     // Convert supplied assets (collateral)
@@ -119,7 +124,48 @@ export class AavePositionMapper {
    * @param dtos Array of Aave position DTOs
    * @returns Array of risk assessment models
    */
-  public static toRiskAssessmentList(dtos: AavePositionDTO[]): RiskAssessmentModel[] {
+  public toRiskAssessmentList(dtos: AavePositionDTO[]): RiskAssessmentModel[] {
     return dtos.map(dto => this.toRiskAssessment(dto));
+  }
+
+  /**
+   * Format token amount using ethers formatUnits
+   * @param amount Token amount in wei
+   * @param decimals Token decimals
+   * @returns Formatted token amount
+   */
+  private formatTokenAmount(amount: string, decimals: number): string {
+    try {
+      if (!amount || amount === '0') return '0';
+      const formatted = formatUnits(amount, decimals);
+      // Remove trailing zeros and decimal point if not needed
+      return parseFloat(formatted).toString();
+    } catch (error) {
+      this.logger.warn(`Error formatting token amount ${amount}:`, error);
+      return '0';
+    }
+  }
+
+  /**
+   * Format health factor using ethers formatUnits
+   * @param healthFactor Health factor in wei (18 decimals)
+   * @returns Formatted health factor
+   */
+  private formatHealthFactor(healthFactor: string): string {
+    try {
+      if (!healthFactor || healthFactor === '0') return '0';
+      const formatted = formatUnits(healthFactor, 18);
+      const numericValue = parseFloat(formatted);
+      
+      // Cap at reasonable display value
+      if (numericValue > 100) {
+        return '100.0000';
+      }
+      
+      return numericValue.toFixed(6);
+    } catch (error) {
+      this.logger.warn(`Error formatting health factor ${healthFactor}:`, error);
+      return '0';
+    }
   }
 }

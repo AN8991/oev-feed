@@ -27,6 +27,7 @@ import { ContractVerificationService } from './infrastructure/services/contract-
 import { ProviderHealthMonitor } from './infrastructure/utils/provider-health-monitor';
 import { RequestDistributor } from './infrastructure/utils/request-distributor';
 import { TypeORMAdapter } from './adapters/secondary/database/typeorm/typeorm-adapter';
+import { ProviderHealthIntegrationService } from './application/services/provider-health-integration.service';
 
 // Middleware
 import { MiddlewareModule, LoggingInterceptor, MetricsInterceptor, CircuitBreakerInterceptor, ErrorHandlingInterceptor } from './middleware';
@@ -40,6 +41,7 @@ import { ProviderHealthRepository } from './adapters/secondary/database/typeorm/
 // Mappers
 import { EventMapper } from './application/mappers/event.mapper';
 import { ProviderMapper } from './application/mappers/provider.mapper';
+import { AavePositionMapper } from './application/mappers/aave-position.mapper';
 
 // Protocol Adapter Module
 import { ProtocolAdapterModule } from './adapters/secondary/protocols/protocol-adapter.module';
@@ -49,6 +51,9 @@ import { ProviderFactoryModule } from './adapters/secondary/providers/provider-f
 
 // Time Module
 import { TimeModule } from './infrastructure/services/time.module';
+
+// Utils Module
+import { UtilsModule } from './infrastructure/utils/utils.module';
 
 // Database configuration
 import { typeOrmConfig } from './infrastructure/config/typeorm.config';
@@ -91,6 +96,7 @@ class AppController {
     ProviderConfigModule,
     ProviderFactoryModule,
     TimeModule,
+    UtilsModule,
     TypeOrmModule.forRootAsync({
       useFactory: (configService: AppConfigService) => {
         const dbConfig = configService.database;
@@ -153,10 +159,12 @@ class AppController {
     RiskAssessmentService,
     QueryOrchestratorService,
     ProtocolAdapterFactory,
+    ProviderHealthIntegrationService,
     
     // Mappers
     EventMapper,
     ProviderMapper,
+    AavePositionMapper,
     
     // Infrastructure Services
     AppConfigService,

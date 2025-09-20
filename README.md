@@ -129,39 +129,6 @@ npm run test:database
 npm run test:all
 ```
 
-### **Test Organization**
-- **`test/unit/`** - Fast unit tests with mocked dependencies
-- **`scripts/`** - Integration tests with real blockchain data
-  - `scripts/aave/` - Aave protocol integration tests
-  - `scripts/database/` - Database setup and connection tests
-  - `scripts/infrastructure/` - Provider monitoring tests
-  - `scripts/integration/` - End-to-end integration tests
-  - `scripts/utilities/` - Development and validation tools
-
-## 📁 Project Structure
-
-```
-src/
-├── domain/              # Domain layer (business logic)
-│   ├── models/         # Domain models and interfaces
-│   ├── services/       # Domain services
-│   ├── ports/          # Ports (interfaces)
-│   └── types/          # Domain types
-├── application/         # Application layer
-│   ├── services/       # Application services
-│   └── dto/           # Data transfer objects
-├── adapters/           # Adapter layer
-│   ├── primary/       # API adapters (REST, GraphQL)
-│   └── secondary/     # External service adapters
-└── infrastructure/     # Infrastructure utilities
-    ├── config/        # Configuration management
-    ├── utils/         # Health monitoring, request distribution (NestJS Logger)
-    └── services/      # Infrastructure services
-
-scripts/                # Integration tests and utilities
-test/                  # Unit tests
-```
-
 ## 🔧 Development
 
 ### **Available Scripts**
