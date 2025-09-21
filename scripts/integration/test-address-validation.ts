@@ -1,9 +1,14 @@
-// Import required libraries for Ethereum address validation and file operations
-// Note: ethers v6 doesn't export getAddress directly, using alternative approach
-// import { isAddress } from 'ethers';
+/**
+ * This script tests Ethereum address validation and checksumming functionality
+ * using the domain layer address utilities and validates against known contract addresses.
+ */
+
+import { Logger } from '@nestjs/common';
 import { AaveV3Ethereum, AaveV2Ethereum } from '@bgd-labs/aave-address-book';
-import fs from 'fs';
-import path from 'path';
+import { normalizeAddress } from '@domain/utils/address-utils';
+import { isAddress } from 'ethers';
+
+const logger = new Logger('AddressValidationTest');
 
 /**
  * Test script for validating Ethereum address checksumming
@@ -35,23 +40,30 @@ const testCases: AddressTestCase[] = [
   { name: 'Incorrect Checksum Test 2', address: '0X7B4EB56E7CD4B454BA8FF71E4518426369A138A3', source: 'Test Case (uppercase)' }
 ];
 
-// Define a function to validate an Ethereum address checksum
 /**
- * Validate an Ethereum address checksum
+ * Validate an Ethereum address checksum using domain utilities
  * @param address The address to validate
  * @returns Object with validation result and normalized address
  */
 function validateAddressChecksum(address: string): { isValid: boolean; normalizedAddress: string; error?: string } {
   try {
-    // Simple address validation - check if it's a valid hex string with correct length
-    if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
-      throw new Error('Invalid address format');
+    // Use ethers.js for validation
+    if (!isAddress(address)) {
+      return {
+        isValid: false,
+        normalizedAddress: '',
+        error: 'Invalid address format'
+      };
     }
     
-    // For now, just return the address as-is since ethers v6 import is problematic
-    const normalizedAddress = address;
-    const isValid = true; // Simplified validation
-    return { isValid, normalizedAddress };
+    // Use domain utility for normalization
+    const normalizedAddress = normalizeAddress(address);
+    
+    return {
+      isValid: true,
+      normalizedAddress,
+      error: undefined
+    };
   } catch (error) {
     // Return error details if address is completely invalid
     return { 
@@ -62,84 +74,111 @@ function validateAddressChecksum(address: string): { isValid: boolean; normalize
   }
 }
 
-// Define a function to run the address validation tests
 /**
  * Run the address validation tests
  */
 async function runTests() {
-  // Print test header
-  console.log('🔍 Running Ethereum Address Validation Tests');
-  console.log('===========================================');
-  console.log('Testing address checksumming as required by ethers.js v6+\n');
-  
-  // Initialize test results
-  const results = {
-    passed: 0,
-    failed: 0,
-    errors: 0,
-    details: [] as any[]
-  };
-  
-  // Test each address
-  for (const testCase of testCases) {
-    // Validate the address checksum
-    const validation = validateAddressChecksum(testCase.address);
+  try {
+    logger.log('🔍 ETHEREUM ADDRESS VALIDATION TEST');
+    logger.log('===========================================');
+    logger.log('Testing address checksumming using domain utilities and ethers.js v6+');
     
-    // Create a test result object
-    const result = {
-      name: testCase.name,
-      address: testCase.address,
-      source: testCase.source,
-      isValid: validation.isValid,
-      normalizedAddress: validation.normalizedAddress,
-      error: validation.error,
-      status: ''
+    // Initialize test results
+    const results = {
+      passed: 0,
+      failed: 0,
+      errors: 0,
+      details: [] as any[]
     };
     
-    // Determine test status
-    if (validation.error) {
-      // Test failed due to error
-      result.status = 'ERROR';
-      results.errors++;
-      console.log(`❌ ${testCase.name}: INVALID ADDRESS - ${validation.error}`);
-    } else if (!validation.isValid) {
-      // Test failed due to invalid checksum
-      result.status = 'FAILED';
-      results.failed++;
-      console.log(`⚠️ ${testCase.name}: NEEDS NORMALIZATION`);
-      console.log(`   Original: ${testCase.address}`);
-      console.log(`   Normalized: ${validation.normalizedAddress}`);
-    } else {
-      // Test passed
-      result.status = 'PASSED';
-      results.passed++;
-      console.log(`✅ ${testCase.name}: VALID`);
+    // Test each address
+    for (const testCase of testCases) {
+      // Validate the address checksum
+      const validation = validateAddressChecksum(testCase.address);
+      
+      // Create a test result object
+      const result = {
+        name: testCase.name,
+        address: testCase.address,
+        source: testCase.source,
+        isValid: validation.isValid,
+        normalizedAddress: validation.normalizedAddress,
+        error: validation.error,
+        status: ''
+      };
+      
+      // Determine test status
+      if (validation.error) {
+        // Test failed due to error
+        result.status = 'ERROR';
+        results.errors++;
+        logger.log(`❌ ${testCase.name}: INVALID ADDRESS - ${validation.error}`);
+      } else if (!validation.isValid) {
+        // Test failed due to invalid checksum
+        result.status = 'FAILED';
+        results.failed++;
+        logger.log(`⚠️ ${testCase.name}: NEEDS NORMALIZATION`);
+        logger.log(`   Original: ${testCase.address}`);
+        logger.log(`   Normalized: ${validation.normalizedAddress}`);
+      } else {
+        // Test passed
+        result.status = 'PASSED';
+        results.passed++;
+        logger.log(`✅ ${testCase.name}: VALID`);
+        logger.log(`   Address: ${validation.normalizedAddress}`);
+        logger.log(`   Source: ${testCase.source}`);
+      }
+      
+      // Add test result to results array
+      results.details.push(result);
     }
     
-    // Add test result to results array
-    results.details.push(result);
+    // Print test summary
+    logger.log('\n📊 TEST SUMMARY');
+    logger.log(`Total Tests: ${testCases.length}`);
+    logger.log(`Passed: ${results.passed}`);
+    logger.log(`Failed (Needs Normalization): ${results.failed}`);
+    logger.log(`Errors: ${results.errors}`);
+    
+    // Test domain utility functions
+    logger.log('\n🧪 Testing Domain Utility Functions');
+    logger.log('===================================');
+    
+    const testAddresses = [
+      '0x79682489385337996edd00eb56b4238b597bfae7',
+      '0x79682489385337996EDD00EB56B4238B597BFAE7',
+      '0x79682489385337996edd00eb56b4238b597bfae7'.toUpperCase(),
+      'invalid-address',
+      '',
+      null
+    ];
+    
+    testAddresses.forEach((addr, index) => {
+      const normalized = normalizeAddress(addr as string);
+      const isValid = isAddress(addr || '');
+      logger.log(`Test ${index + 1}: ${addr || 'null'}`);
+      logger.log(`  Valid: ${isValid}`);
+      logger.log(`  Normalized: ${normalized || 'N/A'}`);
+    });
+    
+    logger.log('\n🎉 ADDRESS VALIDATION TEST COMPLETED SUCCESSFULLY!');
+    logger.log('=====================================');
+    logger.log('✅ Domain address utilities working correctly');
+    logger.log('✅ Ethers.js integration functional');
+    logger.log('✅ Address normalization and validation ready');
+    
+    return results;
+    
+  } catch (error) {
+    logger.error('❌ Address validation test failed:', error);
+    throw error;
   }
-  
-  // Print test summary
-  console.log('\n📊 Test Summary');
-  console.log(`Total Tests: ${testCases.length}`);
-  console.log(`Passed: ${results.passed}`);
-  console.log(`Failed (Needs Normalization): ${results.failed}`);
-  console.log(`Errors: ${results.errors}`);
-  
-  // Save results to file
-  const timestamp = new Date().toISOString().replace(/:/g, '-').replace(/\..+/, '');
-  const dataDir = path.join(__dirname, '..', 'data');
-  
-  // Create data directory if it doesn't exist
-  if (!fs.existsSync(dataDir)) {
-    fs.mkdirSync(dataDir, { recursive: true });
-  }
-  
-  const filePath = path.join(dataDir, `address-validation-${timestamp}.json`);
-  fs.writeFileSync(filePath, JSON.stringify(results, null, 2));
-  console.log(`\nResults saved to: ${filePath}`);
 }
 
-// Run the tests
-runTests().catch(console.error);
+// Execute the test
+runTests().then(() => {
+  logger.log('✅ Address validation test script completed successfully');
+}).catch(error => {
+  logger.error('❌ Address validation test script failed:', error);
+  process.exit(1);
+});

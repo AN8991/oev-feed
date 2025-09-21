@@ -1,3 +1,6 @@
+/**
+ * Check what all tables saved in the database
+ */
 import 'dotenv/config';
 import { Client } from 'pg';
 

@@ -1,178 +1,66 @@
-# OEV Feed - DeFi Lending Protocol Data Aggregator
+<p align="center">
+  <a href="https://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
+</p>
 
-A backend service that aggregates and monitors user lending and borrowing data from various DeFi protocols using **Hexagonal Architecture** for maintainable, protocol-agnostic design.
+[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
+[circleci-url]: https://circleci.com/gh/nestjs/nest
 
-## 🎯 Project Overview
+  <p align="center">A progressive <a href="https://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
+    <p align="center">
+<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
+<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
+<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
+<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
+<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
+<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
+<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
+  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg"/></a>
+    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
+  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow"></a>
+</p>
+  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
+  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
 
-OEV Feed tracks user positions across multiple DeFi lending protocols, providing real-time position data including collateral, debt amounts, and health factors. The system is designed for scalability and protocol independence.
+## Description
 
-## 🔗 Supported Protocols
+Nest is a framework for building efficient, scalable <a href="https://nodejs.org" target="_blank">Node.js</a> server-side applications. It uses modern JavaScript, is built with <a href="https://www.typescriptlang.org" target="_blank">TypeScript</a> (preserves compatibility with pure JavaScript) and combines elements of OOP (Object Oriented Programming), FP (Functional Programming), and FRP (Functional Reactive Programming).
 
-### **Currently Supported**
-- **Aave V2** (Ethereum)
-- **Aave V3** (Ethereum)
+<p>Under the hood, Nest makes use of <a href="https://expressjs.com/" target="_blank">Express</a>, but also provides compatibility with a wide range of other libraries, like <a href="https://github.com/fastify/fastify" target="_blank">Fastify</a>, allowing for easy use of the myriad of third-party plugins which are available.</p>
 
-### **Planned Support**
-- **Silo Finance** (Arbitrum)
-- **Compound** (Ethereum)
-- **Curve** (Multi-chain)
-- **Ironclad Finance**
-- **Lendle Protocol**
-- **Orbit Protocol**
+## Philosophy
 
-## ✨ Features
+<p>In recent years, thanks to Node.js, JavaScript has become the “lingua franca” of the web for both front and backend applications, giving rise to awesome projects like <a href="https://angular.io/" target="_blank">Angular</a>, <a href="https://github.com/facebook/react" target="_blank">React</a>, and <a href="https://github.com/vuejs/vue" target="_blank">Vue</a>, which improve developer productivity and enable the construction of fast, testable, and extensible frontend applications. However, on the server-side, while there are a lot of superb libraries, helpers, and tools for Node, none of them effectively solve the main problem - the architecture.</p>
+<p>Nest aims to provide an application architecture out of the box which allows for effortless creation of highly testable, scalable, and loosely coupled and easily maintainable applications. The architecture is heavily inspired by Angular.</p>
 
-- **Multi-protocol position tracking** - Unified interface across DeFi protocols
-- **Real-time health monitoring** - Track liquidation risks and health factors
-- **Protocol-agnostic architecture** - Easy integration of new protocols
-- **Provider redundancy** - Alchemy/Infura fallback mechanisms
-- **Comprehensive testing** - Unit tests + blockchain integration tests
-- **Modernized logging** - NestJS built-in Logger across all components
-- **GraphQL & REST APIs** - Flexible data access patterns
-- **WebSocket support** - Real-time position updates
+## Getting started
 
-## 🏗️ Architecture
+- To check out the [guide](https://docs.nestjs.com), visit [docs.nestjs.com](https://docs.nestjs.com). :books:
+- 要查看中文 [指南](readme_zh.md), 请访问 [docs.nestjs.cn](https://docs.nestjs.cn). :books:
+- [가이드](readme_kr.md) 문서는 [docs.nestjs.com](https://docs.nestjs.com)에서 확인하실 수 있습니다. :books:
+- [ガイド](readme_jp.md)は [docs.nestjs.com](https://docs.nestjs.com)でご確認ください。 :books:
 
-**Hexagonal (Ports and Adapters) Architecture:**
-- **Domain Layer** - Protocol-agnostic business logic and models
-- **Application Layer** - Query orchestration, DTOs, mappers
-- **Adapter Layer** - Protocol adapters, database adapters, provider adapters
-- **Infrastructure Layer** - Health monitoring, request distribution, NestJS Logger
+## Questions
 
-## 🛠️ Tech Stack
+For questions and support please use the official [Discord channel](https://discord.gg/G7Qnnhy). The issue list of this repo is **exclusively** for bug reports and feature requests.
 
-- **Backend**: TypeScript, Node.js
-- **Database**: PostgreSQL with TypeORM
-- **Blockchain**: ethers.js v6+
-- **APIs**: GraphQL, REST, WebSocket
-- **Providers**: Alchemy, Infura
-- **Testing**: Jest (unit), ts-node (integration)
-- **Architecture**: Hexagonal (Ports and Adapters)
+## Issues
 
-## 🚀 Getting Started
+Please make sure to read the [Issue Reporting Checklist](https://github.com/nestjs/nest/blob/master/CONTRIBUTING.md#-submitting-an-issue) before opening an issue. Issues not conforming to the guidelines may be closed immediately.
 
-### **Prerequisites**
-- Node.js 18+
-- PostgreSQL 14+
-- Alchemy API key
-- Infura API key (optional, for redundancy)
+## Consulting
 
-### **Installation**
+With official support, you can get expert help straight from Nest core team. We provide dedicated technical support, migration strategies, advice on best practices (and design decisions), PR reviews, and team augmentation. Read more about [support here](https://enterprise.nestjs.com).
 
-```bash
-# Clone the repository
-git clone <repository-url>
-cd oev-feed
+## Support
 
-# Install dependencies
-npm install
+Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support from the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
 
-# Set up environment variables
-cp .env.example .env
-```
+## Stay in touch
 
-### **Database Setup**
+- Author - [Kamil Myśliwiec](https://x.com/kammysliwiec)
+- Website - [https://nestjs.com](https://nestjs.com/)
+- X - [@nestframework](https://x.com/nestframework)
 
-```bash
-# Create PostgreSQL database
-createdb oev_feed
+## License
 
-# Run database setup script
-npm run setup:database
-```
-
-### **Environment Configuration**
-
-Update `.env` with your configuration:
-
-```env
-# Database
-DATABASE_URL=postgresql://username:password@localhost:5432/oev_feed
-
-# Blockchain Providers
-ALCHEMY_API_KEY=your_alchemy_api_key
-INFURA_API_KEY=your_infura_api_key
-
-# Application
-NODE_ENV=development
-PORT=3000
-```
-
-## 🧪 Testing
-
-The project uses a **dual testing strategy**:
-
-### **Unit Tests** (Fast, Mocked)
-```bash
-# Run all unit tests
-npm run test:unit
-
-# Run specific unit test
-npm test -- test/unit/domain/models/position.model.test.ts
-
-# Run with coverage
-npm run test:unit -- --coverage
-```
-
-### **Integration Tests** (Blockchain, Real Data)
-```bash
-# Run all integration tests
-npm run test:integration
-
-# Run specific protocol tests
-npm run test:aave
-
-# Run database tests
-npm run test:database
-
-# Run all tests (unit + integration)
-npm run test:all
-```
-
-## 🔧 Development
-
-### **Available Scripts**
-
-```bash
-# Development
-npm run build          # Build TypeScript
-npm run start          # Start application
-npm run lint           # Run ESLint
-
-# Testing
-npm run test:unit      # Unit tests only
-npm run test:integration # Integration tests only
-npm run test:all       # All tests
-npm run test:aave      # Aave protocol tests
-
-# Utilities
-npm run verify:contracts # Verify smart contract addresses
-```
-
-### **Key Implementation Notes**
-
-- **Address Normalization** - All Ethereum addresses use `ethers.getAddress()` for checksum validation
-- **Path Aliases** - Uses TypeScript path aliases (`@domain/*`, `@adapters/*`) for clean imports
-- **Provider Fallback** - Automatic failover between Alchemy and Infura
-- **Protocol Abstraction** - New protocols can be added without changing core business logic
-- **Modernized Logging** - NestJS Logger integration across all components
-- **Simplified Infrastructure** - Streamlined utilities with health monitoring and request distribution
-
-## 📚 Documentation
-
-- **`architecture.md`** - Detailed architecture overview
-- **`project-structure.md`** - Codebase organization guide
-- **`implementation-spec.md`** - Implementation specifications
-- **`scripts/README.md`** - Integration testing guide
-
-## 🤝 Contributing
-
-1. Follow the Hexagonal Architecture patterns
-2. Add unit tests for domain/application logic
-3. Add integration tests for new protocol adapters
-4. Use TypeScript path aliases for imports
-5. Ensure all tests pass before submitting PRs
-
-## 📄 License
-
-[Add your license information here]
+Nest is [MIT licensed](LICENSE).

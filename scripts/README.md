@@ -9,16 +9,18 @@ We use an integration-focused approach with script-based tests that provide seve
 1. **Real-world Testing**: Scripts interact with actual contracts on the Ethereum mainnet, providing realistic validation
 2. **Address Validation**: Proper testing of address checksumming as required by ethers.js v6+
 3. **Data Format Validation**: Ensures position data is properly formatted with correct decimal places and units
-4. **Easy to Run**: Simple npm scripts to run individual tests or organized test suites
+4. **Database Integration**: Full end-to-end testing with database persistence and risk assessment
+5. **Clean Output**: Minimal logging focused on essential information and results
+6. **Easy to Run**: Simple npm scripts to run individual tests or organized test suites
 
 ## Folder Structure
 
 ### 📂 `aave/` - Aave Protocol Testing
-Core Aave protocol integration tests and utilities.
+Core Aave protocol integration tests with comprehensive database functionality.
 
+- **`test-aave-v2-adapter.ts`** - ✨ **Enhanced** - Aave V2 protocol adapter with full database integration, risk assessment, and provider data population
+- **`test-aave-v3-adapter.ts`** - ✨ **Enhanced** - Aave V3 protocol adapter with full database integration, risk assessment, and provider data population
 - **`test-aave-data-provider.ts`** - Tests Aave data provider functionality
-- **`test-aave-v2-adapter.ts`** - Tests Aave V2 protocol adapter initialization and position fetching
-- **`test-aave-v3-adapter.ts`** - Tests Aave V3 protocol adapter initialization and position fetching
 - **`test-weth-position.ts`** - Tests WETH-specific position handling
 - **`check-aave-addresses-book.ts`** - Validates Aave contract addresses from official address book
 
@@ -26,6 +28,7 @@ Core Aave protocol integration tests and utilities.
 Database setup, testing, and maintenance utilities.
 
 - **`create-database.ts`** - Creates the oev_feed PostgreSQL database
+- **`reset-database.ts`** - 🆕 **NEW** - Truncates all tables and resets auto-increment sequences for fresh testing
 - **`test-database-connection.ts`** - Full database connection test with TypeORM
 - **`test-database-connection-simple.ts`** - Simple database connectivity test
 - **`check-database-positions.ts`** - Monitors and validates database position data
@@ -52,8 +55,9 @@ Complete system integration tests and cross-component validation.
 ### 📂 `utilities/` - Development Utilities
 Development tools and validation utilities.
 
+- **`test-wallet-risk.ts`** - 🆕 **NEW** - Comprehensive wallet risk assessment across all supported DeFi protocols with clean reporting
 - **`verify-contracts.ts`** - Automates smart contract address and bytecode verification
-- **`test-path-aliases.ts`** - Validates TypeScript path alias configuration and import boundaries (uses NestJS Logger)
+- **`test-path-aliases.ts`** - Validates TypeScript path alias configuration and import boundaries
 
 ## How to Run Scripts
 
@@ -61,13 +65,17 @@ Development tools and validation utilities.
 Each script can be run individually with ts-node:
 
 ```bash
-# Aave testing
+# Aave Protocol testing
 npx ts-node -r tsconfig-paths/register scripts/aave/test-aave-v3-adapter.ts
 npx ts-node -r tsconfig-paths/register scripts/aave/test-aave-v2-adapter.ts
 
 # Database operations
 npx ts-node -r tsconfig-paths/register scripts/database/create-database.ts
+npx ts-node -r tsconfig-paths/register scripts/database/reset-database.ts
 npx ts-node -r tsconfig-paths/register scripts/database/test-database-connection.ts
+
+# Risk Assessment & Utilities
+npx ts-node -r tsconfig-paths/register scripts/utilities/test-wallet-risk.ts
 
 # Infrastructure testing
 npx ts-node -r tsconfig-paths/register scripts/infrastructure/test-provider-monitoring.ts
@@ -110,9 +118,59 @@ npm run test:provider-monitoring     # Provider monitoring system
 - **Environment Dependent**: Most scripts require proper `.env` configuration
 - **Real Data**: Tests use actual blockchain data, not mocks, for realistic validation
 
+## Key Features
+
+### 🔄 Enhanced Aave Adapter Tests
+Both Aave V2 and V3 adapter tests now include:
+- **Full Database Integration**: Automatic user creation, position saving, and data verification
+- **Risk Assessment**: Real-time risk calculation and storage using RiskAssessmentService
+- **Provider Data Population**: Automated provider and request tracking setup
+- **Clean Output**: Minimal logging focused on essential results
+- **Data Persistence**: Complete end-to-end validation of database operations
+
+### 🗑️ Database Reset Utility
+The new `reset-database.ts` script provides:
+- **Complete Data Cleanup**: Truncates all tables while preserving structure
+- **Sequence Reset**: Resets auto-increment sequences to start from 1
+- **Safe Operation**: Preserves table structure, constraints, and relationships
+- **Verification**: Confirms cleanup and tests sequence reset
+
+### 📊 Wallet Risk Assessment
+The new `test-wallet-risk.ts` utility offers:
+- **Multi-Protocol Analysis**: Checks positions across Aave V2 & V3
+- **Comprehensive Risk Metrics**: Individual position and overall portfolio risk
+- **Professional Reporting**: Clean, structured risk analysis output
+- **Real-time Data**: Fetches live position data from database
+- **Risk Classification**: 5-tier risk level system with recommendations
+
 ## Quick Start
 
-1. Set up environment variables
-2. Create database: `npx ts-node -r tsconfig-paths/register scripts/database/create-database.ts`
-3. Test Aave integration: `npx ts-node -r tsconfig-paths/register scripts/aave/test-aave-v3-adapter.ts`
-4. Monitor providers: `npx ts-node -r tsconfig-paths/register scripts/infrastructure/test-provider-monitoring.ts`
+1. **Set up environment variables**: Copy `.env.example` to `.env` and configure
+2. **Create database**: `npx ts-node -r tsconfig-paths/register scripts/database/create-database.ts`
+3. **Reset database** (for fresh testing): `npx ts-node -r tsconfig-paths/register scripts/database/reset-database.ts`
+4. **Test Aave integration**: `npx ts-node -r tsconfig-paths/register scripts/aave/test-aave-v3-adapter.ts`
+5. **Assess wallet risk**: `npx ts-node -r tsconfig-paths/register scripts/utilities/test-wallet-risk.ts`
+6. **Monitor providers**: `npx ts-node -r tsconfig-paths/register scripts/infrastructure/test-provider-monitoring.ts`
+
+## Testing Workflow
+
+### For Fresh Testing
+```bash
+# 1. Reset database to clean state
+npx ts-node -r tsconfig-paths/register scripts/database/reset-database.ts
+
+# 2. Run Aave adapter tests (populates database)
+npx ts-node -r tsconfig-paths/register scripts/aave/test-aave-v3-adapter.ts
+
+# 3. Assess wallet risk (reads from database)
+npx ts-node -r tsconfig-paths/register scripts/utilities/test-wallet-risk.ts
+```
+
+### For Development
+```bash
+# Quick database cleanup between tests
+npx ts-node -r tsconfig-paths/register scripts/database/reset-database.ts
+
+# Test specific protocol
+npx ts-node -r tsconfig-paths/register scripts/aave/test-aave-v2-adapter.ts
+```

@@ -1,3 +1,6 @@
+/**
+ * Check what positions are currently saved in the database
+ */
 import 'dotenv/config';
 import 'reflect-metadata';
 import { DataSource } from 'typeorm';
@@ -6,9 +9,6 @@ import { UserEntity } from '../../src/adapters/secondary/database/typeorm/entiti
 
 const TEST_USER_ADDRESS = '0x79682489385337996edd00eb56b4238b597bfae7';
 
-/**
- * Check what positions are currently saved in the database
- */
 async function checkDatabasePositions() {
   console.log('🔍 CHECKING DATABASE FOR SAVED POSITIONS');
   console.log('User address:', TEST_USER_ADDRESS);
