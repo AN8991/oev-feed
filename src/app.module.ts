@@ -5,8 +5,13 @@ import { ConfigModule as NestConfigModule, ConfigService } from '@nestjs/config'
 import { HttpModule } from '@nestjs/axios';
 import { ConfigModule } from './infrastructure/config/config.module';
 import { ConfigService as AppConfigService } from './infrastructure/config/config';
+import { TypeOrmConfigService } from './infrastructure/config/typeorm-config.service';
 import { HttpConfigModule } from './infrastructure/config/http-config.module';
 import { ProviderConfigModule } from './infrastructure/config/provider-config.module';
+import { NetworkModule } from './infrastructure/config/network.module';
+import { TypeOrmConfigModule } from './infrastructure/config/typeorm-config.module';
+import { SubgraphModule } from './infrastructure/config/subgraph.module';
+import { CacheModule } from './infrastructure/cache/cache.module';
 
 // Controllers
 import { PositionsController } from './adapters/primary/rest/controllers/positions.controller';
@@ -20,7 +25,8 @@ import { RiskAnalysisService } from './application/services/risk-analysis.servic
 import { PositionsService } from './application/services/positions.service';
 import { RiskAssessmentService } from './application/services/risk-assessment.service';
 import { QueryOrchestratorService } from './application/services/query-orchestrator.service';
-import { DatabaseInitService } from './domain/services/database/database-init.service';
+import { DatabaseLifecycleService } from './infrastructure/database/database-lifecycle.service';
+import { DatabaseModule } from './infrastructure/database/database.module';
 import { ProtocolAdapterFactory } from './adapters/secondary/protocols/protocol-adapter-factory';
 import { HttpConfigService } from './infrastructure/config/http.config';
 import { ContractVerificationService } from './infrastructure/services/contract-verification.service';
@@ -29,19 +35,10 @@ import { RequestDistributor } from './infrastructure/utils/request-distributor';
 import { TypeORMAdapter } from './adapters/secondary/database/typeorm/typeorm-adapter';
 import { ProviderHealthIntegrationService } from './application/services/provider-health-integration.service';
 
-// Middleware
+// Middleware, Time and Utils
 import { MiddlewareModule, LoggingInterceptor, MetricsInterceptor, CircuitBreakerInterceptor, ErrorHandlingInterceptor } from './middleware';
-
-// Repositories
-import { ProviderRepository } from './adapters/secondary/database/typeorm/repositories/provider.repository';
-import { ProviderRequestRepository } from './adapters/secondary/database/typeorm/repositories/provider-request.repository';
-import { ProviderHealthRepository } from './adapters/secondary/database/typeorm/repositories/provider-health.repository';
-// PositionRepository removed - using direct TypeORM Repository<PositionEntity> instead
-
-// Mappers
-import { EventMapper } from './application/mappers/event.mapper';
-import { ProviderMapper } from './application/mappers/provider.mapper';
-import { AavePositionMapper } from './application/mappers/aave-position.mapper';
+import { TimeModule } from './infrastructure/services/time.module';
+import { UtilsModule } from './infrastructure/utils/utils.module';
 
 // Protocol Adapter Module
 import { ProtocolAdapterModule } from './adapters/secondary/protocols/protocol-adapter.module';
@@ -49,15 +46,16 @@ import { ProtocolAdapterModule } from './adapters/secondary/protocols/protocol-a
 // Provider Factory Module
 import { ProviderFactoryModule } from './adapters/secondary/providers/provider-factory.module';
 
-// Time Module
-import { TimeModule } from './infrastructure/services/time.module';
+// Mappers
+import { EventMapper } from './application/mappers/event.mapper';
+import { ProviderMapper } from './application/mappers/provider.mapper';
+import { AavePositionMapper } from './application/mappers/aave-position.mapper';
 
-// Utils Module
-import { UtilsModule } from './infrastructure/utils/utils.module';
-
-// Database configuration
-import { typeOrmConfig } from './infrastructure/config/typeorm.config';
-
+// Repositories
+import { ProviderRepository } from './adapters/secondary/database/typeorm/repositories/provider.repository';
+import { ProviderRequestRepository } from './adapters/secondary/database/typeorm/repositories/provider-request.repository';
+import { ProviderHealthRepository } from './adapters/secondary/database/typeorm/repositories/provider-health.repository';
+// PositionRepository removed - using direct TypeORM Repository<PositionEntity> instead
 
 // Entities
 import { PositionEntity } from './adapters/secondary/database/typeorm/entities/position.entity';
@@ -94,35 +92,16 @@ class AppController {
     ConfigModule,
     HttpConfigModule,
     ProviderConfigModule,
+    NetworkModule,
+    TypeOrmConfigModule,
+    SubgraphModule,
+    DatabaseModule,
     ProviderFactoryModule,
     TimeModule,
     UtilsModule,
     TypeOrmModule.forRootAsync({
-      useFactory: (configService: AppConfigService) => {
-        const dbConfig = configService.database;
-        return {
-          type: 'postgres',
-          host: dbConfig.host,
-          port: dbConfig.port,
-          username: dbConfig.username,
-          password: dbConfig.password,
-          database: dbConfig.name,
-          synchronize: dbConfig.synchronize,
-          logging: dbConfig.logging,
-          entities: [
-            PositionEntity,
-            UserEntity,
-            Provider,
-            ProviderRequest,
-            ProviderHealth,
-            OevEvent,
-            Transaction,
-            Block,
-            OevOpportunity,
-          ],
-        };
-      },
-      inject: [AppConfigService],
+      imports: [TypeOrmConfigModule],
+      useClass: TypeOrmConfigService,
     }),
     TypeOrmModule.forFeature([
       PositionEntity,
@@ -172,7 +151,7 @@ class AppController {
     ProviderHealthMonitor,
     RequestDistributor,
     TypeORMAdapter,
-    DatabaseInitService,
+    DatabaseLifecycleService,
     
     // Repositories
     ProviderRepository,

@@ -1,11 +1,19 @@
 // TypeORM entity for Position
-import { Entity, PrimaryColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, BeforeInsert } from 'typeorm';
+import { v4 as uuidv4 } from 'uuid';
 import { UserEntity } from './user.entity';
 
 @Entity('positions')
 export class PositionEntity {
-  @PrimaryColumn()
+  @PrimaryGeneratedColumn('uuid')
   id!: string;
+
+  @BeforeInsert()
+  generateId() {
+    if (!this.id) {
+      this.id = uuidv4();
+    }
+  }
 
   @ManyToOne(() => UserEntity, user => user.positions, { onDelete: 'CASCADE', nullable: true })
   @JoinColumn({ name: 'user_id' })

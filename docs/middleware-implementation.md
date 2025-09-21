@@ -2,45 +2,57 @@
 
 ## Overview
 
-This document describes the middleware-based approach implemented for cross-cutting concerns in the OEV Feed project. The middleware system provides centralized logging, metrics collection, circuit breaking, and error handling using NestJS interceptors and battle-tested community packages.
-
+This document describes the middleware implemented for cross-cutting concerns in the OEV Feed project.
 ## Architecture
 
-### Core Components
+### Core Interceptors
 
-1. **BaseInterceptor** - Common functionality for all interceptors
-2. **LoggingInterceptor** - Structured logging with Pino
-3. **MetricsInterceptor** - Prometheus metrics collection
-4. **CircuitBreakerInterceptor** - Circuit breaker pattern using Opossum
-5. **ErrorHandlingInterceptor** - Centralized error transformation
+1. **BaseInterceptor** - Common utilities (correlation ID, path exclusions, handler metadata)
+2. **LoggingInterceptor** - Comprehensive request/response logging with correlation IDs
+3. **MetricsInterceptor** - Performance metrics collection (response time, request count)
+4. **CircuitBreakerInterceptor** - Fault tolerance with automatic failure detection
+5. **ErrorHandlingInterceptor** - Centralized error processing with consistent responses
 
-### Dependencies
+### Modern Dependencies
 
-- `nestjs-pino` - Structured logging
-- `@willsoto/nestjs-prometheus` - Metrics collection
-- `opossum` - Circuit breaker implementation
-- `@nestjs/throttler` - Rate limiting
+- **Logging**: Comprehensive request/response logging with correlation IDs
+- **Metrics**: Performance metrics collection (response time, request count, error rates)
+- **Circuit Breaker**: Automatic failure detection and recovery
+- **Error Handling**: Consistent error response formatting
+- **HTTP Methods**: Enhanced method-specific logging and metrics
 
-## Usage Patterns
-
-### Basic Usage
-
-All interceptors are registered globally and work automatically:
+### Interceptor Order
 
 ```typescript
-// Automatic logging, metrics, and error handling
+// Proper order: Error handling → Logging → Metrics → Circuit Breaker
+providers: [
+  { provide: APP_INTERCEPTOR, useClass: ErrorHandlingInterceptor },
+  { provide: APP_INTERCEPTOR, useClass: LoggingInterceptor },
+  { provide: APP_INTERCEPTOR, useClass: MetricsInterceptor },
+  { provide: APP_INTERCEPTOR, useClass: CircuitBreakerInterceptor },
+]
+```
+
+## Usage Patterns - **Modern NestJS Patterns**
+
+### Automatic Global Coverage
+
+**All endpoints automatically protected**:
+
+```typescript
 @Controller('api')
 export class MyController {
   @Get('data')
   getData() {
+    // Automatic: logging, metrics, error handling, circuit breaker
     return { message: 'Hello World' };
   }
 }
 ```
 
-### Fine-Grained Control
+### Method-Level Control - **Custom Decorators**
 
-Use decorators for method-specific configuration:
+**Fine-grained middleware control**:
 
 ```typescript
 @Controller('api')
@@ -54,228 +66,116 @@ export class MyController {
     track: ['duration', 'success_rate'],
     customLabels: { operation: 'critical_data' }
   })
-  @LogExecution({ 
+  @Logging({ 
     level: 'warn', 
     includeArgs: true 
   })
   getCriticalData(@Query() params: any) {
-    // Implementation
+    // Enhanced protection with custom configuration
+    return this.criticalService.getData(params);
   }
 }
 ```
 
-## Configuration
+## Configuration - **Environment-Driven**
 
 ### Environment Variables
 
-```bash
-# Logging
-LOG_LEVEL=info
-NODE_ENV=development
+**Production-Ready Configuration**:
 
-# Metrics
+```bash
+# Logging Configuration
+LOG_LEVEL=info
+NODE_ENV=production
+
+# Metrics Configuration  
 METRICS_ENABLED=true
 METRICS_PATH=/metrics
 
-# Circuit Breaker
+# Circuit Breaker Configuration
 CIRCUIT_BREAKER_ENABLED=true
 CIRCUIT_BREAKER_TIMEOUT=5000
 CIRCUIT_BREAKER_ERROR_THRESHOLD=60
+
+# HTTP Method-Specific Configuration
+METHOD_SPECIFIC_LOGGING=true
+METHOD_SPECIFIC_METRICS=true
 ```
 
-### Middleware Configuration
+### Centralized Configuration
 
-Configuration is centralized in `middleware.config.ts`:
+**MiddlewareConfig** with method-specific options:
 
 ```typescript
+// src/middleware/config/middleware.config.ts
 export const defaultMiddlewareConfig = {
   logging: {
     enabled: true,
     level: 'info',
-    excludePaths: ['/health', '/metrics'],
-    redactFields: ['password', 'token', 'apiKey'],
+    methodSpecificLogging: {
+      [HttpMethods.GET]: false,    // Reduce noise
+      [HttpMethods.POST]: true,    // Log state changes
+      [HttpMethods.PUT]: true,
+      [HttpMethods.DELETE]: true,
+    }
   },
   metrics: {
     enabled: true,
-    excludePaths: ['/health'],
-    buckets: [0.1, 0.3, 0.5, 0.7, 1, 3, 5, 7, 10],
+    path: '/metrics',
+    methodSpecificMetrics: {
+      [HttpMethods.GET]: true,
+      [HttpMethods.POST]: true,
+    }
   },
   circuitBreaker: {
     enabled: true,
     timeout: 5000,
     errorThresholdPercentage: 60,
-    resetTimeout: 30000,
-  },
+  }
 };
 ```
 
-## Available Decorators
+## Production Features - **Industry-Leading**
 
-### @CircuitBreaker(options)
+### Observability Stack
 
-Applies circuit breaker protection to a method:
-
-```typescript
-@CircuitBreaker({
-  timeout: 3000,
-  errorThresholdPercentage: 50,
-  resetTimeout: 10000
-})
-```
-
-### @Metrics(options)
-
-Configures metrics collection:
+**Comprehensive Monitoring**:
 
 ```typescript
-@Metrics({
-  track: ['duration', 'success_rate', 'error_rate'],
-  customLabels: { service: 'user-service' }
-})
-```
-
-### @LogExecution(options)
-
-Controls logging behavior:
-
-```typescript
-@LogExecution({
-  level: 'info',
-  includeArgs: true,
-  includeResult: false,
-  message: 'Custom log message'
-})
-```
-
-### Disable Middleware
-
-Use these decorators to disable specific middleware:
-
-```typescript
-@NoCircuitBreaker()
-@NoMetrics()
-@NoLogging()
-```
-
-## Testing Endpoints
-
-The system includes a demo controller at `/middleware-demo` with the following endpoints:
-
-- `GET /middleware-demo/health` - Health check with all middleware
-- `GET /middleware-demo/success` - Always succeeds
-- `GET /middleware-demo/error` - Always fails (for error handling testing)
-- `GET /middleware-demo/timeout/:delay` - Configurable delay for timeout testing
-- `POST /middleware-demo/process` - Complex processing with all features
-- `GET /middleware-demo/circuit-breaker-test` - Random failures for circuit breaker testing
-- `GET /middleware-demo/metrics-demo/:category` - Different response times for metrics
-
-## Monitoring
-
-### Metrics Endpoint
-
-Prometheus metrics are available at `/metrics`:
-
-```
+// Automatic metrics collection at /metrics endpoint
+GET /metrics
 # HELP http_requests_total Total number of HTTP requests
 # TYPE http_requests_total counter
-http_requests_total{method="GET",route="/api/data",status_code="200",handler="getData"} 42
+http_requests_total{method="GET",status="200",route="/api/positions"} 1234
 
-# HELP http_request_duration_seconds Duration of HTTP requests in seconds
+# HELP http_request_duration_seconds HTTP request duration in seconds
 # TYPE http_request_duration_seconds histogram
-http_request_duration_seconds_bucket{method="GET",route="/api/data",status_code="200",handler="getData",le="0.1"} 35
+http_request_duration_seconds_bucket{method="GET",route="/api/positions",le="0.1"} 100
 ```
 
-### Structured Logs
+### Error Handling & Resilience
 
-All requests are logged with structured data:
-
-```json
-{
-  "level": "info",
-  "time": "2024-01-01T12:00:00.000Z",
-  "msg": "HTTP Request",
-  "correlationId": "req-123-456",
-  "method": "GET",
-  "path": "/api/data",
-  "statusCode": 200,
-  "duration": 45,
-  "handler": "MyController.getData"
-}
-```
-
-## Error Handling
-
-Errors are automatically transformed and logged:
-
-```json
-{
-  "statusCode": 400,
-  "message": "Validation failed",
-  "error": "Bad Request",
-  "timestamp": "2024-01-01T12:00:00.000Z",
-  "path": "/api/data",
-  "correlationId": "req-123-456"
-}
-```
-
-## Best Practices
-
-1. **Use decorators sparingly** - Global interceptors handle most cases
-2. **Configure timeouts appropriately** - Based on expected response times
-3. **Monitor circuit breaker events** - Set up alerts for open circuits
-4. **Use correlation IDs** - For tracing requests across services
-5. **Exclude health checks** - From metrics and logging to reduce noise
-6. **Set appropriate log levels** - Debug for development, info for production
-
-## Migration Guide
-
-### From Custom Services
-
-Replace custom logging/metrics services with decorators:
+**Centralized Error Processing**:
 
 ```typescript
-// Before
-@Injectable()
-export class MyService {
-  constructor(
-    private logger: StructuredLogger,
-    private metrics: MetricsCollector
-  ) {}
-  
-  async processData() {
-    this.logger.info('Processing started');
-    const start = Date.now();
-    // ... processing
-    this.metrics.recordDuration('process_data', Date.now() - start);
-  }
-}
-
-// After
-@Injectable()
-export class MyService {
-  @LogExecution({ message: 'Processing data' })
-  @Metrics({ track: ['duration'], customLabels: { operation: 'process_data' } })
-  async processData() {
-    // ... processing (logging and metrics handled automatically)
-  }
+// Automatic error transformation
+{
+  "statusCode": 500,
+  "message": "Internal server error",
+  "timestamp": "2025-09-21T08:00:00.000Z",
+  "path": "/api/positions",
+  "correlationId": "req-123-456-789"
 }
 ```
 
-## Troubleshooting
+### Circuit Breaker Protection
 
-### Common Issues
+**Automatic Failure Detection**:
 
-1. **Circuit breaker not triggering** - Check error threshold and minimum calls
-2. **Metrics not appearing** - Verify `/metrics` endpoint accessibility
-3. **Logs not structured** - Check Pino configuration
-4. **High memory usage** - Review metrics cardinality and retention
-
-### Debug Mode
-
-Enable debug logging:
-
-```bash
-LOG_LEVEL=debug npm start
+```typescript
+// Circuit breaker states: CLOSED → OPEN → HALF_OPEN
+// Automatic recovery with configurable thresholds
+// Per-handler instances for granular control
 ```
 
-This provides detailed information about interceptor execution and configuration.
+*Middleware Implementation Guide - Updated: 2025-09-21*

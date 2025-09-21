@@ -6,6 +6,8 @@
 import { Injectable, NestInterceptor, ExecutionContext, CallHandler } from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { Request, Response } from 'express';
+import { HttpMethods } from '../../domain/enums/httpMethods';
+import { normalizeHttpMethod } from '../../domain/utils/http-methods.utils';
 
 @Injectable()
 export abstract class BaseInterceptor implements NestInterceptor {
@@ -21,7 +23,7 @@ export abstract class BaseInterceptor implements NestInterceptor {
     return {
       request,
       response,
-      method: request.method,
+      method: normalizeHttpMethod(request.method),
       url: request.url,
       path: request.route?.path || request.url,
       userAgent: request.get('user-agent'),
@@ -30,6 +32,7 @@ export abstract class BaseInterceptor implements NestInterceptor {
       timestamp: new Date().toISOString(),
     };
   }
+
 
   /**
    * Get or create correlation ID for request tracking

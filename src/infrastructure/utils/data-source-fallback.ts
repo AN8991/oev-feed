@@ -6,7 +6,7 @@
  */
 
 import { Injectable, Logger } from '@nestjs/common';
-import { DataSourceType } from '../../domain/types/data-source-type';
+import { DataSourceType } from '../../domain/types/data-source.types';
 
 /**
  * Data source fallback options

@@ -1,4 +1,4 @@
-import { PositionFilterCriteria } from '@domain/types/position-filter.type';
+import { PositionFilterCriteria } from '@/domain/types/position-filter.types';
 
 /**
  * Enum for predefined time ranges

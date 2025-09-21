@@ -4,7 +4,6 @@
  * Layer: Domain
  */
 
-// Domain model for Risk Assessment - Protocol-agnostic representation
 export interface RiskAssessmentModel {
   // Core identifiers
   userAddress: string;

@@ -13,6 +13,7 @@ import { AxiosResponse } from 'axios';
 import { CONTRACT_ADDRESSES, ContractAddressesType } from '@infrastructure/config/contracts';
 import { Protocol } from '@domain/types/protocols';
 import { HttpConfigService } from '@infrastructure/config/http.config';
+import { HttpMethods } from '@domain/enums/httpMethods';
 
 // Etherscan API response interface
 interface EtherscanApiResponse<T = any> {

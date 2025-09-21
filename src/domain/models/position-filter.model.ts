@@ -5,45 +5,27 @@
  */
 
 export interface PositionFilterCriteria {
-  /**
-   * Minimum health factor threshold
-   * Only return positions with health factor >= this value
-   */
+  //Minimum health factor threshold
   minHealthFactor?: number;
 
-  /**
-   * Maximum health factor threshold
-   * Only return positions with health factor <= this value
-   */
+  //Maximum health factor threshold
   maxHealthFactor?: number;
 
-  /**
-   * Minimum collateral amount in ETH
-   */
+  //Minimum collateral amount in ETH
   minCollateralAmountETH?: number;
 
-  /**
-   * Maximum collateral amount in ETH
-   */
+  //Maximum collateral amount in ETH  
   maxCollateralAmountETH?: number;
 
-  /**
-   * Minimum debt amount in ETH
-   */
+  //Minimum debt amount in ETH
   minDebtAmountETH?: number;
 
-  /**
-   * Maximum debt amount in ETH
-   */
+  //Maximum debt amount in ETH
   maxDebtAmountETH?: number;
 
-  /**
-   * Specific protocols to include
-   */
+  //Specific protocols to include
   includedProtocols?: string[];
 
-  /**
-   * Specific networks to include
-   */
+  //Specific networks to include
   includedNetworks?: string[];
 }

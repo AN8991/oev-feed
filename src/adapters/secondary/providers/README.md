@@ -38,11 +38,11 @@ const balance = await provider.getBalance('0x...');
 ### Advanced Usage
 
 ```typescript
-import { ProviderFactory, ProviderType } from './adapters/secondary/providers/provider-factory';
+import { ProviderFactory, Providers } from './adapters/secondary/providers/provider-factory';
 
 // Get a specific provider type
 const alchemyProvider = await ProviderFactory.getProvider('ethereum', {
-  type: ProviderType.ALCHEMY,
+  type: Providers.ALCHEMY,
   fallback: false
 });
 
@@ -53,7 +53,7 @@ const bestProvider = await ProviderFactory.getBestProvider('ethereum');
 const allProviders = await ProviderFactory.getAllProviders('ethereum');
 
 // Set provider priority for fallback
-ProviderFactory.setProviderPriority([ProviderType.ALCHEMY, ProviderType.INFURA]);
+ProviderFactory.setProviderPriority([Providers.ALCHEMY, Providers.INFURA]);
 
 // Create a contract instance
 const contract = provider.getContract(

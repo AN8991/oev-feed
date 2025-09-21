@@ -10,7 +10,7 @@
  * To test provider configuration, use the NestJS application context or integration tests.
  */
 
-import { ProviderFactory, ProviderType } from '@adapters/secondary/providers/provider-factory';
+import { ProviderFactory, Providers } from '@adapters/secondary/providers/provider-factory';
 import { Logger } from '@nestjs/common';
 
 const logger = new Logger('TestProviderConfig');
@@ -48,7 +48,7 @@ async function testProviderConfig() {
     
     // Test provider types
     logger.log('\nAvailable provider types:');
-    Object.values(ProviderType).forEach(type => {
+    Object.values(Providers).forEach(type => {
       logger.log(`- ${type}`);
     });
     

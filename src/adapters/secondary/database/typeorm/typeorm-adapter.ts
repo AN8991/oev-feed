@@ -20,15 +20,9 @@ export class TypeORMAdapter implements DatabasePort {
    * Save positions to database with upsert logic
    */
   async savePositions(positions: PersistablePosition[]): Promise<void> {
-    console.log(`\n🚨 TypeORMAdapter.savePositions called with ${positions.length} positions`);
-    
-    if (!positions || positions.length === 0) {
-      console.log(`🚨 No positions to save, returning early`);
-      return;
-    }
+    if (!positions || positions.length === 0) return;
     
     for (const position of positions) {
-      console.log(`🔍 Processing position with ID: ${position.id}, userAddress: ${position.userAddress}, user: ${position.user?.id || 'undefined'}`);
       // Check if position already exists based on user + protocol + network + asset
       const existingPosition = await this.positionRepository.findOne({
         where: {
@@ -41,11 +35,8 @@ export class TypeORMAdapter implements DatabasePort {
 
       if (existingPosition) {
         // Update existing position - but we need to handle ID change
-        console.log(`🔍 TypeORMAdapter: Found existing position with ID: ${existingPosition.id}, updating to new ID: ${position.id}`);
-        
         if (existingPosition.id !== position.id) {
           // ID has changed, we need to delete the old one and create a new one
-          console.log(`🔍 TypeORMAdapter: ID changed from ${existingPosition.id} to ${position.id}, recreating position`);
           await this.positionRepository.delete({ id: existingPosition.id });
           
           // Create new position with new ID
@@ -86,7 +77,6 @@ export class TypeORMAdapter implements DatabasePort {
         }
       } else {
         // Insert new position - use repository.create() to ensure proper entity initialization
-        console.log(`🔍 TypeORMAdapter: Creating new position entity with ID: ${position.id}`);
         const entity = this.positionRepository.create({
           id: position.id, // Use the UUID from the position model
           user: position.user, // Set the user relationship

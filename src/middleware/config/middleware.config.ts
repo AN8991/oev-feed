@@ -3,6 +3,8 @@
  * Centralized configuration for all middleware components
  */
 
+import { HttpMethods } from '../../domain/enums/httpMethods';
+
 export interface LoggingConfig {
   enabled: boolean;
   level: 'debug' | 'info' | 'warn' | 'error';
@@ -12,6 +14,7 @@ export interface LoggingConfig {
   includeStackTrace: boolean;
   redactFields: string[];
   correlationIdHeader: string;
+  methodSpecificLogging?: Partial<Record<HttpMethods, boolean>>;
 }
 
 export interface MetricsConfig {
@@ -19,6 +22,7 @@ export interface MetricsConfig {
   defaultLabels: Record<string, string>;
   excludePaths: string[];
   buckets: number[];
+  methodSpecificMetrics?: Partial<Record<HttpMethods, boolean>>;
 }
 
 export interface CircuitBreakerConfig {

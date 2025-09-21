@@ -7,7 +7,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ProviderAdapterPort, ProviderStats } from '../../domain/ports/secondary/provider-adapter.port';
 import { ProviderFactory } from '@adapters/secondary/providers/provider-factory';
-import { ProviderType } from '@domain/enums/provider-type.enum';
+import { Providers } from '@/domain/enums/providers.enum';
 
 /**
  * Provider health status
@@ -197,7 +197,7 @@ export class ProviderHealthMonitor {
             // Check provider health
             const result = await this.checkProviderHealth(
               provider,
-              providerType as ProviderType,
+              providerType as Providers,
               network
             );
             
@@ -223,7 +223,7 @@ export class ProviderHealthMonitor {
    */
   public async checkProviderHealth(
     provider: ProviderAdapterPort,
-    providerType: ProviderType,
+    providerType: Providers,
     network: string
   ): Promise<ProviderHealthCheckResult> {
     const startTime = Date.now();

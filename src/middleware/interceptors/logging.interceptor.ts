@@ -9,6 +9,8 @@ import { tap, catchError } from 'rxjs/operators';
 import { PinoLogger } from 'nestjs-pino';
 import { BaseInterceptor } from './base.interceptor';
 import { LoggingConfig, defaultMiddlewareConfig } from '../config/middleware.config';
+import { HttpMethods } from '../../domain/enums/httpMethods';
+import { HttpMethodConfig, isSafeHttpMethod } from '../../domain/utils/http-methods.utils';
 
 @Injectable()
 export class LoggingInterceptor extends BaseInterceptor {
@@ -27,6 +29,11 @@ export class LoggingInterceptor extends BaseInterceptor {
 
     // Skip logging for excluded paths
     if (this.shouldExcludePath(requestInfo.path, this.config.excludePaths)) {
+      return next.handle();
+    }
+
+    // Skip logging for specific HTTP methods if configured
+    if (!this.shouldLogMethod(requestInfo.method)) {
       return next.handle();
     }
 
@@ -116,5 +123,19 @@ export class LoggingInterceptor extends BaseInterceptor {
         this.removeSensitiveFields(obj[key], sensitiveFields);
       }
     }
+  }
+
+  /**
+   * Check if logging should be enabled for a specific HTTP method
+   */
+  private shouldLogMethod(method: HttpMethods): boolean {
+    if (!this.config.methodSpecificLogging) {
+      // Default behavior: log non-safe methods (POST, PUT, DELETE, PATCH) by default
+      // Safe methods (GET, HEAD, OPTIONS) are not logged by default to reduce noise
+      return HttpMethodConfig.LOGGED_METHODS.includes(method as any);
+    }
+    
+    const methodConfig = this.config.methodSpecificLogging[method];
+    return methodConfig !== false; // Log unless explicitly disabled
   }
 }

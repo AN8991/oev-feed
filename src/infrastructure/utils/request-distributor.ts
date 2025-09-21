@@ -6,7 +6,7 @@
  */
 import { Injectable, Logger } from '@nestjs/common';
 import { ProviderFactory } from '@adapters/secondary/providers/provider-factory';
-import { ProviderType } from '@domain/enums/provider-type.enum';
+import { Providers } from '@/domain/enums/providers.enum';
 import { ProviderAdapterPort } from '@domain/ports/secondary/provider-adapter.port';
 
 /**
@@ -97,12 +97,12 @@ export class RequestDistributor {
   /**
    * Last selected provider type for each network
    */
-  private lastSelectedProviderType: Map<string, ProviderType> = new Map();
+  private lastSelectedProviderType: Map<string, Providers> = new Map();
   
   /**
    * Excluded providers for each network
    */
-  private excludedProviders: Map<string, Set<ProviderType>> = new Map();
+  private excludedProviders: Map<string, Set<Providers>> = new Map();
   
   /**
    * Constructor
@@ -139,7 +139,7 @@ export class RequestDistributor {
    * @param temporaryExclusionMs Optional duration in ms to exclude the provider (if not provided, excluded until explicitly included)
    */
   public excludeProvider(
-    providerType: ProviderType,
+    providerType: Providers,
     network: string,
     temporaryExclusionMs?: number
   ): void {
@@ -167,7 +167,7 @@ export class RequestDistributor {
    * @param providerType Provider type to include
    * @param network Network name
    */
-  public includeProvider(providerType: ProviderType, network: string): void {
+  public includeProvider(providerType: Providers, network: string): void {
     // Check if we have excluded providers for this network
     if (this.excludedProviders.has(network)) {
       // Remove provider from excluded set
@@ -183,7 +183,7 @@ export class RequestDistributor {
    * @param network Network name
    * @returns Last selected provider type or undefined if none selected yet
    */
-  public getLastSelectedProviderType(network: string): ProviderType | undefined {
+  public getLastSelectedProviderType(network: string): Providers | undefined {
     return this.lastSelectedProviderType.get(network);
   }
   
@@ -195,9 +195,9 @@ export class RequestDistributor {
    * @returns Selected provider and its type
    */
   public selectProvider(
-    providers: Map<ProviderType, ProviderAdapterPort>,
+    providers: Map<Providers, ProviderAdapterPort>,
     network: string
-  ): { provider: ProviderAdapterPort; type: ProviderType } {
+  ): { provider: ProviderAdapterPort; type: Providers } {
     // Convert providers map to array of entries
     let availableProviders = Array.from(providers.entries())
       // Only include providers for the requested network
@@ -226,7 +226,7 @@ export class RequestDistributor {
     }
 
     // Select provider based on strategy
-    let selected: [ProviderType, ProviderAdapterPort];
+    let selected: [Providers, ProviderAdapterPort];
 
     switch (this.strategy) {
       case SelectionStrategy.RATE_LIMIT:
@@ -268,8 +268,8 @@ export class RequestDistributor {
    * @returns Selected provider entry
    */
   private selectByRateLimit(
-    providers: [ProviderType, ProviderAdapterPort][]
-  ): [ProviderType, ProviderAdapterPort] {
+    providers: [Providers, ProviderAdapterPort][]
+  ): [Providers, ProviderAdapterPort] {
     // Sort by rate limit remaining (highest first)
     const sorted = [...providers].sort((a, b) => {
       const statsA = a[1].getStats();
@@ -299,8 +299,8 @@ export class RequestDistributor {
    * @returns Selected provider entry
    */
   private selectByResponseTime(
-    providers: [ProviderType, ProviderAdapterPort][]
-  ): [ProviderType, ProviderAdapterPort] {
+    providers: [Providers, ProviderAdapterPort][]
+  ): [Providers, ProviderAdapterPort] {
     // Sort by average response time (lowest first)
     return [...providers].sort((a, b) => {
       const statsA = a[1].getStats();
@@ -317,8 +317,8 @@ export class RequestDistributor {
    * @returns Selected provider entry
    */
   private selectByHealth(
-    providers: [ProviderType, ProviderAdapterPort][]
-  ): [ProviderType, ProviderAdapterPort] {
+    providers: [Providers, ProviderAdapterPort][]
+  ): [Providers, ProviderAdapterPort] {
     // Sort by failure rate (lowest first)
     return [...providers].sort((a, b) => {
       const statsA = a[1].getStats();
@@ -343,8 +343,8 @@ export class RequestDistributor {
    * @returns Selected provider entry
    */
   private selectByLeastLoaded(
-    providers: [ProviderType, ProviderAdapterPort][]
-  ): [ProviderType, ProviderAdapterPort] {
+    providers: [Providers, ProviderAdapterPort][]
+  ): [Providers, ProviderAdapterPort] {
     // Sort by request count (lowest first)
     return [...providers].sort((a, b) => {
       const statsA = a[1].getStats();
@@ -362,9 +362,9 @@ export class RequestDistributor {
    * @returns Selected provider entry
    */
   private selectByRoundRobin(
-    providers: [ProviderType, ProviderAdapterPort][],
+    providers: [Providers, ProviderAdapterPort][],
     network: string
-  ): [ProviderType, ProviderAdapterPort] {
+  ): [Providers, ProviderAdapterPort] {
     // Get or initialize counter for this network
     const counter = this.roundRobinCounter.get(network) || 0;
     
@@ -385,8 +385,8 @@ export class RequestDistributor {
    * @returns Selected provider entry
    */
   private selectRandomly(
-    providers: [ProviderType, ProviderAdapterPort][]
-  ): [ProviderType, ProviderAdapterPort] {
+    providers: [Providers, ProviderAdapterPort][]
+  ): [Providers, ProviderAdapterPort] {
     const index = Math.floor(Math.random() * providers.length);
     return providers[index];
   }

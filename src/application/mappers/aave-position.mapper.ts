@@ -25,7 +25,6 @@ export class AavePositionMapper {
     try {
       // Generate simple UUID for position ID
       const id = uuidv4();
-      console.log(`\n🚨 AavePositionMapper.toDomain() generated UUID: ${id}`);
 
       // Use ethers formatUnits for proper token amount conversion
       const decimals = dto.assetDecimals ?? 18;

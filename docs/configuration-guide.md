@@ -2,25 +2,34 @@
 
 ## Overview
 
-The OEV Feed application uses a unified configuration system built on top of NestJS's `@nestjs/config` with comprehensive validation using `class-validator`. This approach provides type safety, startup validation, and centralized configuration management.
+The OEV Feed application uses **modern DI-based configuration services** with comprehensive validation using `class-validator`. This approach provides type safety, startup validation, and centralized configuration management.
 
-## Configuration Structure
+**Current Status**: with modern NestJS patterns
 
-### Environment Variables
+## Configuration Architecture
 
-All configuration is driven by environment variables. Create a `.env` file in the project root:
+### Configuration Services
+
+**Modern Injectable Services**:
+
+1. **TypeOrmConfigService** - Database configuration with connection pooling
+2. **NetworkConfigService** - Multi-provider network configuration (10 providers, 5 networks)
+3. **SubgraphService** - Multi-network subgraph endpoint management
+4. **DatabaseLifecycleService** - Database lifecycle with health checks
+
+## Environment Variables
+
+**Complete Configuration** for production deployment:
 
 ```bash
 # Application Configuration
-NODE_ENV=development
+NODE_ENV=production
 PORT=3000
 APP_NAME=OEV Feed
 APP_VERSION=1.0.0
-ENABLE_SWAGGER=true
-ENABLE_METRICS=true
 LOG_LEVEL=info
 
-# Database Configuration
+# Database Configuration - Enhanced
 DB_HOST=localhost
 DB_PORT=5432
 DB_USERNAME=postgres
@@ -29,212 +38,126 @@ DB_NAME=oev_feed
 DB_SYNCHRONIZE=false
 DB_LOGGING=false
 DB_MAX_CONNECTIONS=10
-DB_CONNECTION_TIMEOUT=30000
+DB_MIN_CONNECTIONS=1
+DB_ACQUIRE_TIMEOUT=30000
+DB_IDLE_TIMEOUT=30000
+DATABASE_URL=postgresql://user:pass@host:5432/db
 
-# HTTP Configuration
-HTTP_TIMEOUT=30000
-HTTP_MAX_REDIRECTS=3
-HTTP_RETRIES=3
-HTTP_RATE_LIMIT_REQUESTS=1000
-HTTP_RATE_LIMIT_WINDOW=60000
-HTTP_CIRCUIT_BREAKER_ENABLED=true
-HTTP_CIRCUIT_BREAKER_THRESHOLD=5
-
-# Provider Configuration
+# Provider Configuration - 10 Providers Supported
 ALCHEMY_API_KEY=your_alchemy_key
 INFURA_API_KEY=your_infura_key
+BLOCKDAEMON_API_KEY=your_blockdaemon_key
+BLOCKCYPHER_API_KEY=your_blockcypher_key
+QUICKNODE_API_KEY=your_quicknode_key
 ETHERSCAN_API_KEY=your_etherscan_key
-SUPPORTED_NETWORKS=ethereum,polygon,arbitrum
-PROVIDER_HEALTH_CHECK_INTERVAL=10000
+ANKR_API_KEY=your_ankr_key
+POCKET_API_KEY=your_pocket_key
+CUSTOM_RPC_URL=your_custom_rpc
+LOCAL_RPC_URL=http://localhost:8545
 
-# Protocol Configuration
+# Network Configuration - 5 Networks
+SUPPORTED_NETWORKS=ethereum,polygon,arbitrum,optimism,blast
+
+# Subgraph Configuration
+GRAPH_STUDIO_API_KEY=your_graph_studio_key
+
+# Protocol Configuration - Enhanced
 AAVE_V2_ETHEREUM_POOL=0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7A9
 AAVE_V2_ETHEREUM_DATA_PROVIDER=0x057835Ad21a177dbdd3090bB1CAE03EaCF78Fc6d
 AAVE_V3_ETHEREUM_POOL=0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2
 AAVE_V3_ETHEREUM_DATA_PROVIDER=0x7B4EB56E7CD4b454BA8ff71E4518426369a138a3
+
+# Middleware Configuration - Industry-Leading
+METRICS_ENABLED=true
+METRICS_PATH=/metrics
+CIRCUIT_BREAKER_ENABLED=true
+CIRCUIT_BREAKER_TIMEOUT=5000
+METHOD_SPECIFIC_LOGGING=true
+METHOD_SPECIFIC_METRICS=true
 ```
 
-## Configuration Classes
+## Modern Configuration Services - **Injectable Pattern** ✅
 
-### AppConfig
-Application-level settings including environment, port, and feature flags.
+### TypeOrmConfigService
 
-**Properties:**
-- `nodeEnv`: Environment (development, production, test)
-- `port`: Application port (1000-65535)
-- `appName`: Application name
-- `version`: Application version
-- `enableSwagger`: Enable Swagger documentation
-- `enableMetrics`: Enable Prometheus metrics
-- `logLevel`: Logging level
-
-### DatabaseConfig
-PostgreSQL database connection settings.
-
-**Properties:**
-- `host`: Database host
-- `port`: Database port (1-65535)
-- `username`: Database username
-- `password`: Database password
-- `name`: Database name
-- `synchronize`: Auto-sync schema (use false in production)
-- `logging`: Enable query logging
-- `maxConnections`: Maximum connection pool size (1-100)
-- `connectionTimeout`: Connection timeout in ms (1000-60000)
-
-### HttpConfig
-HTTP client configuration with circuit breaker and rate limiting.
-
-**Properties:**
-- `timeout`: Request timeout in ms (1000-300000)
-- `maxRedirects`: Maximum redirects (0-10)
-- `retries`: Retry attempts (0-10)
-- `rateLimitRequests`: Requests per window (100-10000)
-- `rateLimitWindow`: Rate limit window in ms (1000-3600000)
-- `circuitBreakerEnabled`: Enable circuit breaker
-- `circuitBreakerThreshold`: Failure threshold (1-100)
-
-### ProviderConfig
-External API provider settings.
-
-**Properties:**
-- `alchemyApiKey`: Alchemy API key
-- `infuraApiKey`: Infura API key
-- `etherscanApiKey`: Etherscan API key
-- `supportedNetworks`: Comma-separated network list
-- `healthCheckInterval`: Health check interval in ms (1000-60000)
-
-### ProtocolConfig
-Protocol-specific contract addresses and settings.
-
-**Properties:**
-- `aaveV2EthereumPool`: Aave V2 pool address
-- `aaveV2EthereumDataProvider`: Aave V2 data provider address
-- `aaveV3EthereumPool`: Aave V3 pool address
-- `aaveV3EthereumDataProvider`: Aave V3 data provider address
-
-## Usage
-
-### Injecting Configuration
+**Production-ready database configuration**:
 
 ```typescript
-import { Injectable } from '@nestjs/common';
-import { UnifiedConfigService } from '@infrastructure/config/unified.config';
-
 @Injectable()
-export class MyService {
-  constructor(private readonly configService: UnifiedConfigService) {}
+export class TypeOrmConfigService implements TypeOrmOptionsFactory {
+  constructor(private readonly configService: ConfigService) {}
 
-  someMethod() {
-    // Get complete configuration
-    const config = this.configService.getConfig();
-    
-    // Get specific configuration sections
-    const appConfig = this.configService.getAppConfig();
-    const dbConfig = this.configService.getDatabaseConfig();
-    const httpConfig = this.configService.getHttpConfig();
-    
-    // Environment checks
-    if (this.configService.isProduction()) {
-      // Production-specific logic
-    }
-    
-    // Protocol configuration
-    const aaveConfig = this.configService.getProtocolAdapterConfig('aave-v2', 'ethereum');
+  createTypeOrmOptions(): TypeOrmModuleOptions {
+    // Connection pooling, SSL support, environment-specific configurations
+    // Complete entity registration with all 9 TypeORM entities
   }
 }
 ```
 
-### Validation
+### NetworkConfigService
 
-Configuration is automatically validated on application startup. Invalid configuration will prevent the application from starting with detailed error messages.
+**Multi-provider network configuration**:
 
-**Validation Features:**
-- Type checking (string, number, boolean)
-- Range validation (min/max values)
-- Length validation for strings
-- URL format validation
-- Enum validation for specific values
-- Required field validation
-
-## Environment-Specific Configuration
-
-### Development
-```bash
-NODE_ENV=development
-DB_SYNCHRONIZE=true
-DB_LOGGING=true
-LOG_LEVEL=debug
-ENABLE_SWAGGER=true
+```typescript
+@Injectable()
+export class NetworkConfigService {
+  // 5 networks: Ethereum, Polygon, Arbitrum, Optimism, Blast
+  // 10 providers with type-safe URL templates
+  // API key management and validation
+  
+  getNetworkConfig(network: Network, provider: Providers): NetworkConfig {
+    // Type-safe provider URL templates with API key management
+  }
+}
 ```
 
-### Production
-```bash
-NODE_ENV=production
-DB_SYNCHRONIZE=false
-DB_LOGGING=false
-LOG_LEVEL=warn
-ENABLE_SWAGGER=false
-HTTP_CIRCUIT_BREAKER_ENABLED=true
+### SubgraphService
+
+**Multi-network subgraph management**:
+
+```typescript
+@Injectable()
+export class SubgraphService {
+  // Aave V2/V3 support across all networks
+  // Configuration validation and health checking
+  
+  getSubgraphEndpoint(protocol: string, version: string, network: string): SubgraphEndpoint {
+    // Multi-version Aave support with validation
+  }
+}
 ```
 
-### Testing
-```bash
-NODE_ENV=test
-DB_NAME=oev_feed_test
-DB_SYNCHRONIZE=true
-LOG_LEVEL=error
-ENABLE_METRICS=false
+## Usage Patterns - **Dependency Injection**
+
+### Service Injection
+
+**Proper NestJS Pattern**:
+
+```typescript
+@Injectable()
+export class YourService {
+  constructor(
+    private readonly networkConfig: NetworkConfigService,
+    private readonly subgraphService: SubgraphService,
+    private readonly databaseService: DatabaseLifecycleService
+  ) {}
+
+  async initialize() {
+    // Use injected configuration services
+    const networkInfo = this.networkConfig.getNetworkInfo(Network.ETHEREUM);
+    const isHealthy = await this.databaseService.isHealthy();
+  }
+}
 ```
 
-## Migration from Legacy Configuration
+### Configuration Validation
 
-The unified configuration system replaces multiple configuration classes:
+**Startup Validation** with class-validator:
 
-**Replaced Classes:**
-- `ConfigService` → `UnifiedConfigService`
-- `HttpConfigService` → `UnifiedConfigService.getHttpConfig()`
-- `DatabaseConfig` → `UnifiedConfigService.getDatabaseConfig()`
-
-**Migration Steps:**
-1. Update imports to use `UnifiedConfigService`
-2. Replace method calls with new configuration methods
-3. Update environment variable names if needed
-4. Remove old configuration files
-
-## Best Practices
-
-1. **Environment Variables**: Always use environment variables for configuration
-2. **Validation**: Rely on startup validation to catch configuration errors early
-3. **Type Safety**: Use the typed configuration methods instead of raw environment access
-4. **Secrets**: Never commit API keys or passwords to version control
-5. **Documentation**: Keep this guide updated when adding new configuration options
-
-## Troubleshooting
-
-### Common Issues
-
-**Configuration Validation Failed**
-- Check environment variable names and formats
-- Ensure required variables are set
-- Verify numeric values are within valid ranges
-
-**Database Connection Failed**
-- Verify database credentials and connectivity
-- Check if database exists
-- Ensure PostgreSQL is running
-
-**HTTP Requests Failing**
-- Verify API keys are set correctly
-- Check network connectivity
-- Review circuit breaker settings
-
-### Debug Configuration
-
-Enable debug logging to see configuration values:
-
-```bash
-LOG_LEVEL=debug
+```typescript
+// Automatic validation on application startup
+// Type-safe configuration with proper error messages
+// Environment-specific validation rules
 ```
 
-The application will log the validated configuration on startup (sensitive values are redacted).
+*Configuration Guide - Updated: 2025-09-21*

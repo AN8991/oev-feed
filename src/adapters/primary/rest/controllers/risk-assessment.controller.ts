@@ -4,6 +4,12 @@ import { RiskAnalysisService } from '../../../../application/services/risk-analy
 import { PositionsService } from '../../../../application/services/positions.service';
 import { RiskAssessmentService } from '../../../../application/services/risk-assessment.service';
 import { RiskAssessmentModel, RiskLevel } from '../../../../domain/models/risk.model';
+import { 
+  SuccessResponse, 
+  ErrorResponse,
+  ValidationErrorResponseDto,
+  RiskAssessmentResponseDto
+} from '../../../../application/dto/api-response.dto';
 
 @ApiTags('Risk Assessment')
 @Controller('risk-assessment')
@@ -43,15 +49,22 @@ export class RiskAssessmentController {
   @ApiResponse({ 
     status: 200, 
     description: 'Risk assessment data for user positions',
-    type: [Object]
+    type: SuccessResponse<RiskAssessmentResponseDto[]>
   })
   @ApiResponse({ 
     status: 400, 
-    description: 'Invalid wallet address format' 
+    description: 'Invalid wallet address format',
+    type: ValidationErrorResponseDto
   })
   @ApiResponse({ 
     status: 404, 
-    description: 'No positions found for address' 
+    description: 'No positions found for address',
+    type: ErrorResponse
+  })
+  @ApiResponse({ 
+    status: 500, 
+    description: 'Internal server error',
+    type: ErrorResponse
   })
   async getUserRiskAssessment(
     @Param('address') address: string,

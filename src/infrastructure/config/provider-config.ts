@@ -2,7 +2,7 @@
 import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { validate } from 'class-validator';
-import { ProviderType } from '@domain/enums/provider-type.enum';
+import { Providers } from '@/domain/enums/providers.enum';
 
 /**
  * Provider configuration interface
@@ -71,12 +71,12 @@ export interface NetworkConfig {
   /**
    * Network-specific provider configurations
    */
-  providers: Partial<Record<ProviderType, ProviderConfig>>;
+  providers: Partial<Record<Providers, ProviderConfig>>;
   
   /**
    * Default provider type for this network
    */
-  defaultProvider?: ProviderType;
+  defaultProvider?: Providers;
 }
 
 /**
@@ -86,12 +86,12 @@ export interface GlobalProviderConfig {
   /**
    * Default provider type
    */
-  defaultProviderType: ProviderType;
+  defaultProviderType: Providers;
   
   /**
    * Provider priority for fallback
    */
-  providerPriority: ProviderType[];
+  providerPriority: Providers[];
   
   /**
    * Default timeout in milliseconds
@@ -142,8 +142,8 @@ export class ProviderConfigService implements OnModuleInit {
   constructor(private readonly configService: ConfigService) {
     // Initialize with default global configuration
     this.globalConfig = {
-      defaultProviderType: ProviderType.ALCHEMY,
-      providerPriority: [ProviderType.ALCHEMY, ProviderType.INFURA],
+      defaultProviderType: Providers.ALCHEMY,
+      providerPriority: [Providers.ALCHEMY, Providers.INFURA],
       defaultTimeout: 30000,
       defaultMaxRetries: 3,
       enableCaching: true,
@@ -175,7 +175,7 @@ export class ProviderConfigService implements OnModuleInit {
       aliases: ['mainnet'],
       chainId: 1,
       providers: {
-        [ProviderType.ALCHEMY]: {
+        [Providers.ALCHEMY]: {
           apiKey: this.configService.get<string>('ALCHEMY_API_KEY', ''),
           baseUrl: 'https://eth-mainnet.g.alchemy.com/v2/',
           rateLimit: {
@@ -185,7 +185,7 @@ export class ProviderConfigService implements OnModuleInit {
           timeout: 30000,
           maxRetries: 3,
         },
-        [ProviderType.INFURA]: {
+        [Providers.INFURA]: {
           apiKey: this.configService.get<string>('INFURA_API_KEY') || this.configService.get<string>('INFURA_PROJECT_ID', ''),
           baseUrl: 'https://mainnet.infura.io/v3/',
           rateLimit: {
@@ -199,7 +199,7 @@ export class ProviderConfigService implements OnModuleInit {
           },
         },
       },
-      defaultProvider: ProviderType.ALCHEMY,
+      defaultProvider: Providers.ALCHEMY,
     });
     
     // Ethereum Goerli
@@ -208,7 +208,7 @@ export class ProviderConfigService implements OnModuleInit {
       aliases: ['ethereum-goerli'],
       chainId: 5,
       providers: {
-        [ProviderType.ALCHEMY]: {
+        [Providers.ALCHEMY]: {
           apiKey: process.env.ALCHEMY_API_KEY || '',
           baseUrl: 'https://eth-goerli.g.alchemy.com/v2/',
           rateLimit: {
@@ -216,7 +216,7 @@ export class ProviderConfigService implements OnModuleInit {
             window: 60000, // 1 minute
           },
         },
-        [ProviderType.INFURA]: {
+        [Providers.INFURA]: {
           apiKey: process.env.INFURA_API_KEY || process.env.INFURA_PROJECT_ID || '',
           baseUrl: 'https://goerli.infura.io/v3/',
           rateLimit: {
@@ -236,7 +236,7 @@ export class ProviderConfigService implements OnModuleInit {
       aliases: ['ethereum-sepolia'],
       chainId: 11155111,
       providers: {
-        [ProviderType.ALCHEMY]: {
+        [Providers.ALCHEMY]: {
           apiKey: process.env.ALCHEMY_API_KEY || '',
           baseUrl: 'https://eth-sepolia.g.alchemy.com/v2/',
           rateLimit: {
@@ -244,7 +244,7 @@ export class ProviderConfigService implements OnModuleInit {
             window: 60000, // 1 minute
           },
         },
-        [ProviderType.INFURA]: {
+        [Providers.INFURA]: {
           apiKey: process.env.INFURA_API_KEY || process.env.INFURA_PROJECT_ID || '',
           baseUrl: 'https://sepolia.infura.io/v3/',
           rateLimit: {
@@ -264,7 +264,7 @@ export class ProviderConfigService implements OnModuleInit {
       aliases: ['polygon-mainnet'],
       chainId: 137,
       providers: {
-        [ProviderType.ALCHEMY]: {
+        [Providers.ALCHEMY]: {
           apiKey: process.env.ALCHEMY_API_KEY || '',
           baseUrl: 'https://polygon-mainnet.g.alchemy.com/v2/',
           rateLimit: {
@@ -272,7 +272,7 @@ export class ProviderConfigService implements OnModuleInit {
             window: 60000, // 1 minute
           },
         },
-        [ProviderType.INFURA]: {
+        [Providers.INFURA]: {
           apiKey: process.env.INFURA_API_KEY || process.env.INFURA_PROJECT_ID || '',
           baseUrl: 'https://polygon-mainnet.infura.io/v3/',
           rateLimit: {
@@ -292,7 +292,7 @@ export class ProviderConfigService implements OnModuleInit {
       aliases: ['mumbai'],
       chainId: 80001,
       providers: {
-        [ProviderType.ALCHEMY]: {
+        [Providers.ALCHEMY]: {
           apiKey: process.env.ALCHEMY_API_KEY || '',
           baseUrl: 'https://polygon-mumbai.g.alchemy.com/v2/',
           rateLimit: {
@@ -300,7 +300,7 @@ export class ProviderConfigService implements OnModuleInit {
             window: 60000, // 1 minute
           },
         },
-        [ProviderType.INFURA]: {
+        [Providers.INFURA]: {
           apiKey: process.env.INFURA_API_KEY || process.env.INFURA_PROJECT_ID || '',
           baseUrl: 'https://polygon-mumbai.infura.io/v3/',
           rateLimit: {
@@ -320,7 +320,7 @@ export class ProviderConfigService implements OnModuleInit {
       aliases: ['arbitrum-mainnet'],
       chainId: 42161,
       providers: {
-        [ProviderType.ALCHEMY]: {
+        [Providers.ALCHEMY]: {
           apiKey: process.env.ALCHEMY_API_KEY || '',
           baseUrl: 'https://arb-mainnet.g.alchemy.com/v2/',
           rateLimit: {
@@ -328,7 +328,7 @@ export class ProviderConfigService implements OnModuleInit {
             window: 60000, // 1 minute
           },
         },
-        [ProviderType.INFURA]: {
+        [Providers.INFURA]: {
           apiKey: process.env.INFURA_API_KEY || process.env.INFURA_PROJECT_ID || '',
           baseUrl: 'https://arbitrum-mainnet.infura.io/v3/',
           rateLimit: {
@@ -348,7 +348,7 @@ export class ProviderConfigService implements OnModuleInit {
       aliases: ['optimism-mainnet'],
       chainId: 10,
       providers: {
-        [ProviderType.ALCHEMY]: {
+        [Providers.ALCHEMY]: {
           apiKey: process.env.ALCHEMY_API_KEY || '',
           baseUrl: 'https://opt-mainnet.g.alchemy.com/v2/',
           rateLimit: {
@@ -356,7 +356,7 @@ export class ProviderConfigService implements OnModuleInit {
             window: 60000, // 1 minute
           },
         },
-        [ProviderType.INFURA]: {
+        [Providers.INFURA]: {
           apiKey: process.env.INFURA_API_KEY || process.env.INFURA_PROJECT_ID || '',
           baseUrl: 'https://optimism-mainnet.infura.io/v3/',
           rateLimit: {
@@ -399,7 +399,7 @@ export class ProviderConfigService implements OnModuleInit {
    * @param providerType Provider type
    * @returns Provider configuration or undefined if not found
    */
-  public getProviderConfig(networkName: string, providerType?: ProviderType): ProviderConfig | undefined {
+  public getProviderConfig(networkName: string, providerType?: Providers): ProviderConfig | undefined {
     const network = this.getNetwork(networkName);
     
     if (!network) {
@@ -433,7 +433,7 @@ export class ProviderConfigService implements OnModuleInit {
    * Get provider priority
    * @returns Provider priority array
    */
-  public getProviderPriority(): ProviderType[] {
+  public getProviderPriority(): Providers[] {
     return [...this.globalConfig.providerPriority];
   }
   
@@ -441,7 +441,7 @@ export class ProviderConfigService implements OnModuleInit {
    * Set provider priority
    * @param priority Provider priority array
    */
-  public setProviderPriority(priority: ProviderType[]): void {
+  public setProviderPriority(priority: Providers[]): void {
     this.globalConfig.providerPriority = [...priority];
   }
   
@@ -493,7 +493,7 @@ export class ProviderConfigService implements OnModuleInit {
     // Update global config from environment variables
     const defaultProviderType = this.configService.get<string>('DEFAULT_PROVIDER_TYPE');
     if (defaultProviderType) {
-      this.globalConfig.defaultProviderType = defaultProviderType as ProviderType;
+      this.globalConfig.defaultProviderType = defaultProviderType as Providers;
     }
     
     const providerPriority = this.configService.get<string>('PROVIDER_PRIORITY');
@@ -518,7 +518,7 @@ export class ProviderConfigService implements OnModuleInit {
     
     // Update network configurations from environment variables
     for (const network of this.getAllNetworks()) {
-      for (const providerType of Object.keys(network.providers) as ProviderType[]) {
+      for (const providerType of Object.keys(network.providers) as Providers[]) {
         const envKeyPrefix = `${network.name.toUpperCase()}_${providerType.toUpperCase()}`;
         
         // Update API key

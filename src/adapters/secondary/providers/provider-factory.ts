@@ -6,7 +6,7 @@ import { InfuraProviderAdapter, InfuraProviderConfig } from './infura-provider.a
 import { EnhancedProviderAdapter } from './enhanced-provider.adapter';
 import { ProviderConfigService } from '@infrastructure/config/provider-config';
 import { RequestDistributor, SelectionStrategy } from '@infrastructure/utils/request-distributor';
-import { ProviderType } from '@domain/enums/provider-type.enum';
+import { Providers } from '@/domain/enums/providers.enum';
 
 /**
  * Provider options interface
@@ -15,7 +15,7 @@ export interface ProviderOptions {
   /**
    * Provider type
    */
-  type?: ProviderType;
+  type?: Providers;
   
   /**
    * Whether to use fallback providers if the primary provider fails
@@ -39,12 +39,12 @@ export class ProviderFactory {
    * Provider cache
    * Maps network name and provider type to provider instance
    */
-  private readonly providerCache: Map<string, Map<ProviderType, ProviderAdapterPort>> = new Map();
+  private readonly providerCache: Map<string, Map<Providers, ProviderAdapterPort>> = new Map();
   
   /**
    * Provider priority for fallback
    */
-  private providerPriority: ProviderType[] = [];
+  private providerPriority: Providers[] = [];
   
   /**
    * Logger instance
@@ -161,7 +161,7 @@ export class ProviderFactory {
     const providerScores: Array<{
       provider: ProviderAdapterPort;
       score: number;
-      type: ProviderType;
+      type: Providers;
     }> = [];
     
     for (const [type, provider] of providers.entries()) {
@@ -276,7 +276,7 @@ export class ProviderFactory {
    * @param network Network name
    * @returns Map of provider type to provider instance
    */
-  public async getAllProviders(network: string): Promise<Map<ProviderType, ProviderAdapterPort>> {
+  public async getAllProviders(network: string): Promise<Map<Providers, ProviderAdapterPort>> {
     // Normalize network name
     const normalizedNetwork = network.toLowerCase();
     
@@ -293,14 +293,14 @@ export class ProviderFactory {
     }
     
     // Get available provider types for the network
-    const availableTypes = Object.keys(networkConfig.providers) as ProviderType[];
+    const availableTypes = Object.keys(networkConfig.providers) as Providers[];
     
     if (availableTypes.length === 0) {
       throw new Error(`No providers configured for ${normalizedNetwork}`);
     }
     
     // Get providers for each type
-    const providers = new Map<ProviderType, ProviderAdapterPort>();
+    const providers = new Map<Providers, ProviderAdapterPort>();
     
     for (const type of availableTypes) {
       try {
@@ -338,7 +338,7 @@ export class ProviderFactory {
    * Set provider priority for fallback
    * @param priority Provider priority array
    */
-  public setProviderPriority(priority: ProviderType[]): void {
+  public setProviderPriority(priority: Providers[]): void {
     this.providerPriority = [...priority];
   }
   
@@ -375,7 +375,7 @@ export class ProviderFactory {
    */
   private getCachedProvider(
     network: string,
-    type: ProviderType
+    type: Providers
   ): ProviderAdapterPort | undefined {
     const networkCache = this.providerCache.get(network);
     
@@ -394,13 +394,13 @@ export class ProviderFactory {
    */
   private cacheProvider(
     network: string,
-    type: ProviderType,
+    type: Providers,
     provider: ProviderAdapterPort
   ): void {
     let networkCache = this.providerCache.get(network);
     
     if (!networkCache) {
-      networkCache = new Map<ProviderType, ProviderAdapterPort>();
+      networkCache = new Map<Providers, ProviderAdapterPort>();
       this.providerCache.set(network, networkCache);
     }
     
@@ -415,7 +415,7 @@ export class ProviderFactory {
    * @returns Provider instance
    */
   private createProvider(
-    type: ProviderType,
+    type: Providers,
     network: string,
     config: Record<string, any> = {}
   ): ProviderAdapterPort {
@@ -430,10 +430,10 @@ export class ProviderFactory {
     
     // Create provider based on type
     switch (type) {
-      case ProviderType.ALCHEMY:
+      case Providers.ALCHEMY:
         baseProvider = new AlchemyProviderAdapter(mergedConfig as AlchemyProviderConfig);
         break;
-      case ProviderType.INFURA:
+      case Providers.INFURA:
         baseProvider = new InfuraProviderAdapter(mergedConfig as InfuraProviderConfig);
         break;
       default:
@@ -455,7 +455,7 @@ export class ProviderFactory {
    */
   private async getFallbackProvider(
     network: string,
-    excludeType: ProviderType,
+    excludeType: Providers,
     config: Record<string, any> = {}
   ): Promise<ProviderAdapterPort> {
     // Get network configuration
@@ -466,7 +466,7 @@ export class ProviderFactory {
     }
     
     // Get available provider types for the network
-    const availableTypes = Object.keys(networkConfig.providers) as ProviderType[];
+    const availableTypes = Object.keys(networkConfig.providers) as Providers[];
     
     // Filter out excluded type
     const fallbackTypes = availableTypes.filter(type => type !== excludeType);
@@ -559,7 +559,7 @@ export class ProviderFactory {
    * @param network Network name
    * @returns Default provider type
    */
-  private getDefaultProviderType(network: string): ProviderType {
+  private getDefaultProviderType(network: string): Providers {
     // Get network configuration
     const networkConfig = this.configService.getNetwork(network);
     
@@ -589,8 +589,8 @@ export class ProviderFactory {
    * Get all provider types
    * @returns Object with provider types
    */
-  public getProviderTypes(): typeof ProviderType {
-    return ProviderType;
+  public getProviderTypes(): typeof Providers {
+    return Providers;
   }
   
   /**
@@ -611,6 +611,6 @@ export class ProviderFactory {
   }
 }
 
-export { ProviderType };
+export { Providers };
 
 // Note: Provider factory will be initialized by the application module

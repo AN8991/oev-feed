@@ -1,5 +1,5 @@
 import { PositionModel } from '../../models/position.model';
-import { PositionFilterCriteria } from '../../types/position-filter.type';
+import { PositionFilterCriteria } from '../../types/position-filter.types';
 import { TimeRange } from '../../types/query-parameters';
 
 /**

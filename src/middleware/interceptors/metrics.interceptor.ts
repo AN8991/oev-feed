@@ -9,6 +9,7 @@ import { tap, catchError } from 'rxjs/operators';
 import { Counter, Histogram, Gauge, register } from 'prom-client';
 import { BaseInterceptor } from './base.interceptor';
 import { MetricsConfig, defaultMiddlewareConfig } from '../config/middleware.config';
+import { HttpMethods } from '../../domain/enums/httpMethods';
 
 @Injectable()
 export class MetricsInterceptor extends BaseInterceptor {
@@ -70,6 +71,11 @@ export class MetricsInterceptor extends BaseInterceptor {
       return next.handle();
     }
 
+    // Skip metrics for specific HTTP methods if configured
+    if (!this.shouldCollectMetrics(requestInfo.method)) {
+      return next.handle();
+    }
+
     const labels = {
       method: requestInfo.method,
       route: requestInfo.path,
@@ -122,5 +128,17 @@ export class MetricsInterceptor extends BaseInterceptor {
     if (error.status) return error.status;
     if (error.statusCode) return error.statusCode;
     return 500; // Internal server error as default
+  }
+
+  /**
+   * Check if metrics should be collected for a specific HTTP method
+   */
+  private shouldCollectMetrics(method: HttpMethods): boolean {
+    if (!this.config.methodSpecificMetrics) {
+      return true; // Default to collecting metrics for all methods
+    }
+    
+    const methodConfig = this.config.methodSpecificMetrics[method];
+    return methodConfig !== false; // Collect unless explicitly disabled
   }
 }

@@ -2,15 +2,8 @@
  * File: protocols.ts
  * Description: Type definitions and constants for supported DeFi protocols in the domain layer.
  * Layer: Domain
- * Created: 2025-04-15
  */
 
-/**
- * Domain types for blockchain protocols
- * 
- * Part of the domain layer in hexagonal architecture
- * Contains core protocol abstractions that are independent of implementation details
- */
 
 import { Network } from './networks';
 
@@ -36,7 +29,7 @@ export interface BorrowedAsset {
   borrowAPY?: string;  // Annual Percentage Yield
 }
 
-// Comprehensive user position interface
+// Comprehensive user positions interface
 export interface UserProtocolPosition {
   // Core identification
   protocol: Protocol;      // Which protocol (e.g., Aave)

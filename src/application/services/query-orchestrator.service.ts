@@ -7,7 +7,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ProtocolAdapterPort } from '../../domain/ports/secondary/protocol-adapter.port';
 import { PositionModel } from '../../domain/models/position.model';
-import { PositionFilterCriteria } from '../../domain/types/position-filter.type';
+import { PositionFilterCriteria } from '../../domain/types/position-filter.types';
 import { ProtocolQueryParameters, QueryOrchestratorPort, QueryResult, QueryMetadata, PositionQueryResult } from '../../domain/ports/primary/query-orchestrator.port';
 import { ProtocolAdapterFactory } from '../../adapters/secondary/protocols/protocol-adapter-factory';
 import { TimeService } from '../../infrastructure/services/time.service';
