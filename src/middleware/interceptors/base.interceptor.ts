@@ -61,7 +61,9 @@ export abstract class BaseInterceptor implements NestInterceptor {
   protected shouldExcludePath(path: string, excludePaths: string[]): boolean {
     return excludePaths.some(excludePath => {
       if (excludePath.includes('*')) {
-        const regex = new RegExp(excludePath.replace(/\*/g, '.*'));
+        // Convert old wildcard syntax to new named parameter syntax
+        const modernPattern = excludePath.replace(/\*/g, '*path');
+        const regex = new RegExp(modernPattern.replace(/\*path/g, '.*'));
         return regex.test(path);
       }
       return path === excludePath || path.startsWith(excludePath);

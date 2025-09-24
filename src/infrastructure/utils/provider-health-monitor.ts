@@ -1,6 +1,4 @@
  /**
- * Provider Health Monitor
- * 
  * Monitors the health of provider adapters by performing periodic health checks
  * and maintaining health status information.
  */
@@ -9,9 +7,7 @@ import { ProviderAdapterPort, ProviderStats } from '../../domain/ports/secondary
 import { ProviderFactory } from '@adapters/secondary/providers/provider-factory';
 import { Providers } from '@/domain/enums/providers.enum';
 
-/**
- * Provider health status
- */
+// Provider health status
 export enum ProviderHealthStatus {
   HEALTHY = 'healthy',
   DEGRADED = 'degraded',
@@ -19,103 +15,61 @@ export enum ProviderHealthStatus {
   UNKNOWN = 'unknown'
 }
 
-/**
- * Provider health check result
- */
+// Provider health check result
 export interface ProviderHealthCheckResult {
-  /**
-   * Provider name
-   */
+  // Provider name
   provider: string;
   
-  /**
-   * Provider type
-   */
+  // Provider type
   providerType: string;
   
-  /**
-   * Network name
-   */
+  // Network name
   network: string;
   
-  /**
-   * Health status
-   */
+  // Health status
   status: ProviderHealthStatus;
   
-  /**
-   * Health score (0-100)
-   */
+  // Health score (0-100)
   score: number;
   
-  /**
-   * Last check timestamp
-   */
+  // Last check timestamp
   timestamp: number;
   
-  /**
-   * Block number
-   */
+  // Block number
   blockNumber?: number;
   
-  /**
-   * Response time in milliseconds
-   */
+  // Response time in milliseconds
   responseTime?: number;
   
-  /**
-   * Rate limit status
-   */
+  // Rate limit status
   rateLimit?: {
     remaining: number;
     limit: number;
     resetTimestamp: number;
   };
   
-  /**
-   * Error message (if any)
-   */
+  // Error message (if any)
   error?: string;
 }
 
-/**
- * Provider health threshold configuration
- */
+// Provider health threshold configuration
 export interface ProviderHealthThresholds {
-  /**
-   * Maximum acceptable response time in milliseconds
-   * Default: 500ms
-   */
+  // Maximum acceptable response time in milliseconds. Default: 500ms
   maxResponseTime: number;
   
-  /**
-   * Minimum acceptable success rate (0-1)
-   * Default: 0.95 (95%)
-   */
+  // Minimum acceptable success rate (0-1). Default: 0.95 (95%)
   minSuccessRate: number;
   
-  /**
-   * Maximum acceptable error rate (0-1)
-   * Default: 0.05 (5%)
-   */
+  // Maximum acceptable error rate (0-1). Default: 0.05 (5%)
   maxErrorRate: number;
   
-  /**
-   * Maximum acceptable failure rate (0-1)
-   * Default: 0.05 (5%)
-   */
+  // Maximum acceptable failure rate (0-1). Default: 0.05 (5%)
   maxFailureRate: number;
   
-  /**
-   * Minimum acceptable rate limit ratio (0-1)
-   * Default: 0.1 (10%)
-   */
+  // Minimum acceptable rate limit ratio (0-1). Default: 0.1 (10%)
   minRateLimitRatio: number;
   
-  /**
-   * Health check interval in milliseconds
-   * Default: 30000ms (30 seconds)
-   */
+  // Health check interval in milliseconds. Default: 30000ms (30 seconds)
   healthCheckIntervalMs: number;
 }
 
@@ -136,9 +90,6 @@ export class ProviderHealthMonitor {
   private readonly thresholds: ProviderHealthThresholds;
   private readonly providers: Map<string, Map<string, ProviderAdapterPort>> = new Map();
   
-  /**
-   * Constructor
-   */
   constructor(private readonly providerFactory: ProviderFactory) {
     this.thresholds = { ...this.defaultThresholds };
     
@@ -146,9 +97,7 @@ export class ProviderHealthMonitor {
   }
   
   
-  /**
-   * Start health check interval
-   */
+  // Start health check interval
   public startMonitoring(): void {
     if (this.healthCheckInterval) {
       clearInterval(this.healthCheckInterval);
@@ -161,9 +110,7 @@ export class ProviderHealthMonitor {
     this.logger.log(`Started provider health monitoring (interval: ${this.thresholds.healthCheckIntervalMs}ms)`);
   }
   
-  /**
-   * Stop health check interval
-   */
+  // Stop health check interval
   public stopMonitoring(): void {
     if (this.healthCheckInterval) {
       clearInterval(this.healthCheckInterval);
@@ -173,9 +120,7 @@ export class ProviderHealthMonitor {
     }
   }
   
-  /**
-   * Check health of all providers
-   */
+  // Check health of all providers
   public async checkAllProviders(): Promise<void> {
     try {
       // Get all available networks
@@ -416,7 +361,3 @@ export class ProviderHealthMonitor {
     return results;
   }
 }
-
-// Note: ProviderHealthMonitor is now an injectable service
-// Use dependency injection to get an instance instead of this static export
-// This export is removed to enforce proper DI usage

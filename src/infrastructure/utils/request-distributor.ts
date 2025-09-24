@@ -1,6 +1,4 @@
 /**
- * Request Distributor
- * 
  * Part of the infrastructure layer in hexagonal architecture
  * Provides intelligent request routing to blockchain providers based on various strategies
  */
@@ -13,34 +11,22 @@ import { ProviderAdapterPort } from '@domain/ports/secondary/provider-adapter.po
  * Provider selection strategies
  */
 export enum SelectionStrategy {
-  /**
-   * Select provider with the most remaining rate limit
-   */
+  // Select provider with the most remaining rate limit
   RATE_LIMIT = 'rate_limit',
   
-  /**
-   * Select provider with the fastest response time
-   */
+  // Select provider with the fastest response time
   RESPONSE_TIME = 'response_time',
   
-  /**
-   * Select provider with the lowest failure rate
-   */
+  // Select provider with the lowest failure rate
   HEALTH = 'health',
   
-  /**
-   * Select provider randomly
-   */
+  // Select provider randomly
   RANDOM = 'random',
   
-  /**
-   * Select provider with the least number of requests
-   */
+  // Select provider with the least number of requests
   LEAST_LOADED = 'least_loaded',
   
-  /**
-   * Round-robin selection
-   */
+  // Round-robin selection
   ROUND_ROBIN = 'round_robin'
 }
 
@@ -48,19 +34,13 @@ export enum SelectionStrategy {
  * Request distributor options
  */
 export interface RequestDistributorOptions {
-  /**
-   * Default selection strategy
-   */
+  // Default selection strategy
   defaultStrategy: SelectionStrategy;
   
-  /**
-   * Whether to exclude unhealthy providers
-   */
+  // Whether to exclude unhealthy providers
   excludeUnhealthy: boolean;
   
-  /**
-   * Minimum rate limit remaining to consider a provider
-   */
+  // Minimum rate limit remaining to consider a provider
   minRateLimitRemaining: number;
 }
 
@@ -79,29 +59,19 @@ const DEFAULT_OPTIONS: RequestDistributorOptions = {
 export class RequestDistributor {
   private readonly logger = new Logger(RequestDistributor.name);
   
-  /**
-   * Current selection strategy
-   */
+  // Current selection strategy
   private strategy: SelectionStrategy;
   
-  /**
-   * Options for the request distributor
-   */
+  // Options for the request distributor
   private options: RequestDistributorOptions;
   
-  /**
-   * Counter for round-robin selection
-   */
+  // Counter for round-robin selection
   private roundRobinCounter: Map<string, number> = new Map();
   
-  /**
-   * Last selected provider type for each network
-   */
+  // Last selected provider type for each network
   private lastSelectedProviderType: Map<string, Providers> = new Map();
   
-  /**
-   * Excluded providers for each network
-   */
+  // Excluded providers for each network
   private excludedProviders: Map<string, Set<Providers>> = new Map();
   
   /**
@@ -392,6 +362,3 @@ export class RequestDistributor {
   }
 }
 
-// Note: RequestDistributor is now an injectable service
-// Use dependency injection to get an instance instead of singleton export
-// This singleton export has been removed to enforce proper DI usage

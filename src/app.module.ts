@@ -28,23 +28,19 @@ import { QueryOrchestratorService } from './application/services/query-orchestra
 import { DatabaseLifecycleService } from './infrastructure/database/database-lifecycle.service';
 import { DatabaseModule } from './infrastructure/database/database.module';
 import { ProtocolAdapterFactory } from './adapters/secondary/protocols/protocol-adapter-factory';
+import { ProtocolAdapterService } from './adapters/secondary/protocols/protocol-adapter.service';
+import { ProviderFactory } from './adapters/secondary/providers/provider-factory';
 import { HttpConfigService } from './infrastructure/config/http.config';
 import { ContractVerificationService } from './infrastructure/services/contract-verification.service';
 import { ProviderHealthMonitor } from './infrastructure/utils/provider-health-monitor';
 import { RequestDistributor } from './infrastructure/utils/request-distributor';
-import { TypeORMAdapter } from './adapters/secondary/database/typeorm/typeorm-adapter';
+import { DataSourceFallback } from './infrastructure/utils/data-source-fallback';
 import { ProviderHealthIntegrationService } from './application/services/provider-health-integration.service';
 
 // Middleware, Time and Utils
 import { MiddlewareModule, LoggingInterceptor, MetricsInterceptor, CircuitBreakerInterceptor, ErrorHandlingInterceptor } from './middleware';
 import { TimeModule } from './infrastructure/services/time.module';
 import { UtilsModule } from './infrastructure/utils/utils.module';
-
-// Protocol Adapter Module
-import { ProtocolAdapterModule } from './adapters/secondary/protocols/protocol-adapter.module';
-
-// Provider Factory Module
-import { ProviderFactoryModule } from './adapters/secondary/providers/provider-factory.module';
 
 // Mappers
 import { EventMapper } from './application/mappers/event.mapper';
@@ -77,11 +73,11 @@ class AppController {
       version: '1.0.0',
       description: 'DeFi data aggregation service with risk assessment',
       endpoints: {
-        swagger: '/api/v1.0.0/docs',
-        positions: '/api/v1.0.0/positions',
-        providers: '/api/v1.0.0/providers',
-        events: '/api/v1.0.0/events',
-        riskAssessment: '/api/v1.0.0/risk-assessment'
+        swagger: '/api/v1/docs',
+        positions: '/api/v1/positions',
+        providers: '/api/v1/providers',
+        events: '/api/v1/events',
+        riskAssessment: '/api/v1/risk-assessment'
       }
     };
   }
@@ -96,7 +92,6 @@ class AppController {
     TypeOrmConfigModule,
     SubgraphModule,
     DatabaseModule,
-    ProviderFactoryModule,
     TimeModule,
     UtilsModule,
     TypeOrmModule.forRootAsync({
@@ -125,7 +120,6 @@ class AppController {
       },
       inject: [HttpConfigService],
     }),
-    ProtocolAdapterModule,
     MiddlewareModule,
   ],
   controllers: [AppController, PositionsController, ProvidersController, EventsController, RiskAssessmentController, MiddlewareDemoController],
@@ -138,6 +132,8 @@ class AppController {
     RiskAssessmentService,
     QueryOrchestratorService,
     ProtocolAdapterFactory,
+    ProtocolAdapterService,
+    ProviderFactory,
     ProviderHealthIntegrationService,
     
     // Mappers
@@ -150,7 +146,7 @@ class AppController {
     ContractVerificationService,
     ProviderHealthMonitor,
     RequestDistributor,
-    TypeORMAdapter,
+    DataSourceFallback,
     DatabaseLifecycleService,
     
     // Repositories

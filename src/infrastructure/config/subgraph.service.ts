@@ -1,24 +1,17 @@
 /**
- * Subgraph Configuration Service
- * 
- * Provides subgraph endpoint configuration using proper NestJS dependency injection
- * Replaces the legacy singleton pattern with injectable service
+ * Provides subgraph endpoint configuration
  */
 
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
-/**
- * Subgraph endpoint configuration
- */
+//Subgraph endpoint configuration
 export interface SubgraphEndpoint {
   url: string;
   apiKey: string;
 }
 
-/**
- * Subgraph endpoints by protocol and version
- */
+//Subgraph endpoints by protocol and version
 export interface SubgraphEndpoints {
   AAVE: {
     V3_ETH_MAINNET: SubgraphEndpoint;
@@ -34,9 +27,7 @@ export interface SubgraphEndpoints {
 export class SubgraphService {
   constructor(private readonly configService: ConfigService) {}
 
-  /**
-   * Get all subgraph endpoints
-   */
+//Get all subgraph endpoints
   getSubgraphEndpoints(): SubgraphEndpoints {
     const graphStudioApiKey = this.configService.get<string>('GRAPH_STUDIO_API_KEY');
     
@@ -75,16 +66,12 @@ export class SubgraphService {
     };
   }
 
-  /**
-   * Get specific subgraph endpoint
-   */
+//Get specific subgraph endpoint
   getAaveV3EthMainnetEndpoint(): SubgraphEndpoint {
     return this.getSubgraphEndpoints().AAVE.V3_ETH_MAINNET;
   }
 
-  /**
-   * Get Aave V2 Ethereum mainnet endpoint
-   */
+//Get Aave V2 Ethereum mainnet endpoint
   getAaveV2EthMainnetEndpoint(): SubgraphEndpoint {
     const endpoints = this.getSubgraphEndpoints();
     const endpoint = endpoints.AAVE.V2_ETH_MAINNET;
@@ -96,9 +83,7 @@ export class SubgraphService {
     return endpoint;
   }
 
-  /**
-   * Get subgraph endpoint by protocol and network
-   */
+//Get subgraph endpoint by protocol and network
   getSubgraphEndpoint(protocol: 'AAVE', version: 'V2' | 'V3', network: 'ETH_MAINNET' | 'POLYGON' | 'ARBITRUM' | 'OPTIMISM' | 'BLAST'): SubgraphEndpoint {
     const endpoints = this.getSubgraphEndpoints();
     
@@ -116,9 +101,7 @@ export class SubgraphService {
     throw new Error(`Unsupported protocol: ${protocol}`);
   }
 
-  /**
-   * Check if subgraph endpoint is configured
-   */
+//Check if subgraph endpoint is configured
   isSubgraphConfigured(protocol: 'AAVE', version: 'V2' | 'V3', network: 'ETH_MAINNET' | 'POLYGON' | 'ARBITRUM' | 'OPTIMISM' | 'BLAST'): boolean {
     try {
       this.getSubgraphEndpoint(protocol, version, network);
@@ -128,9 +111,7 @@ export class SubgraphService {
     }
   }
 
-  /**
-   * Get Graph Studio API key
-   */
+//Get Graph Studio API key
   getGraphStudioApiKey(): string {
     const apiKey = this.configService.get<string>('GRAPH_STUDIO_API_KEY');
     
@@ -141,9 +122,7 @@ export class SubgraphService {
     return apiKey;
   }
 
-  /**
-   * Validate subgraph configuration
-   */
+//Validate subgraph configuration
   validateConfiguration(): boolean {
     try {
       this.getGraphStudioApiKey();

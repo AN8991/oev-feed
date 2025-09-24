@@ -33,7 +33,8 @@ export class ProtocolAdapterService implements OnModuleInit, OnModuleDestroy {
         await adapter.initialize();
         this.logger.log(`Initialized ${protocol}-${network} adapter`);
       } catch (error) {
-        this.logger.error(`Failed to initialize ${protocol}-${network} adapter:`, error);
+        // Convert initialization failures to warnings to prevent app startup failures
+        this.logger.warn(`Skipping ${protocol}-${network} adapter initialization due to missing configuration: ${error instanceof Error ? error.message : String(error)}`);
       }
     }
   }
@@ -70,7 +71,7 @@ export class ProtocolAdapterService implements OnModuleInit, OnModuleDestroy {
    */
   private getAdapterConfig(protocol: string, network: string): any {
     // Build configuration from separate config services
-    const baseConfig = {
+    const baseConfig: any = {
       database: this.configService.database,
       logging: {
         level: this.configService.logLevel,
@@ -97,6 +98,19 @@ export class ProtocolAdapterService implements OnModuleInit, OnModuleDestroy {
       }
     } catch (error) {
       this.logger.warn(`Failed to get network config for ${network}:`, error);
+    }
+
+    // Add protocol-specific contract addresses
+    if (protocol === 'aave-v2' && network === 'ethereum') {
+      baseConfig.poolAddress = process.env.AAVE_V2_ETHEREUM_POOL;
+      baseConfig.dataProviderAddress = process.env.AAVE_V2_ETHEREUM_DATA_PROVIDER;
+      baseConfig.oracleAddress = process.env.AAVE_V2_ETHEREUM_ORACLE;
+      baseConfig.providerUrl = process.env.ETHEREUM_RPC_URL;
+    } else if (protocol === 'aave-v3' && network === 'ethereum') {
+      baseConfig.poolAddress = process.env.AAVE_V3_ETHEREUM_POOL;
+      baseConfig.dataProviderAddress = process.env.AAVE_V3_ETHEREUM_DATA_PROVIDER;
+      baseConfig.oracleAddress = process.env.AAVE_V3_ETHEREUM_ORACLE;
+      baseConfig.providerUrl = process.env.ETHEREUM_RPC_URL;
     }
 
     return baseConfig;

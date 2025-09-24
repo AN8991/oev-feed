@@ -1,6 +1,4 @@
 /**
- * Data Source Fallback
- * 
  * Part of the infrastructure layer in hexagonal architecture
  * Provides fallback mechanisms between different data sources
  */
@@ -8,31 +6,18 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { DataSourceType } from '../../domain/types/data-source.types';
 
-/**
- * Data source fallback options
- */
+//Data source fallback options
 export interface DataSourceFallbackOptions {
-  /**
-   * Maximum number of retry attempts for each data source
-   * Default: 3
-   */
+  //Maximum number of retry attempts for each data source. Default: 3
   maxRetryAttempts: number;
   
-  /**
-   * Initial backoff delay in milliseconds
-   * Default: 200ms
-   */
+  //Initial backoff delay in milliseconds. Default: 200ms
   initialBackoffMs: number;
   
-  /**
-   * Maximum backoff delay in milliseconds
-   * Default: 10000ms (10 seconds)
-   */
+  //Maximum backoff delay in milliseconds. Default: 10000ms (10 seconds)
   maxBackoffMs: number;
   
-  /**
-   * Context for logging
-   */
+  //Context for logging
   context: {
     protocol?: string;
     network?: string;
@@ -40,9 +25,7 @@ export interface DataSourceFallbackOptions {
   };
 }
 
-/**
- * Default options for data source fallback
- */
+//Default options for data source fallback
 const DEFAULT_OPTIONS: DataSourceFallbackOptions = {
   maxRetryAttempts: 3,
   initialBackoffMs: 200,
@@ -50,29 +33,14 @@ const DEFAULT_OPTIONS: DataSourceFallbackOptions = {
   context: {}
 };
 
-/**
- * Data source fallback service
- * Handles fallback between different data sources (on-chain, subgraph, API)
- */
+//Data source fallback service
 @Injectable()
 export class DataSourceFallback {
   private readonly logger = new Logger(DataSourceFallback.name);
   private options: DataSourceFallbackOptions;
   
-  /**
-   * Constructor
-   * 
-   * @param options Data source fallback options
-   */
-  constructor(options: Partial<DataSourceFallbackOptions> = {}) {
-    this.options = {
-      ...DEFAULT_OPTIONS,
-      ...options,
-      context: {
-        ...DEFAULT_OPTIONS.context,
-        ...options.context
-      }
-    };
+  constructor() {
+    this.options = DEFAULT_OPTIONS;
   }
   
   /**
@@ -103,5 +71,3 @@ export class DataSourceFallback {
   }
   
 }
-
-// Singleton export removed - use NestJS dependency injection instead

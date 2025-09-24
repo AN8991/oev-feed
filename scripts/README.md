@@ -18,8 +18,8 @@ We use an integration-focused approach with script-based tests that provide seve
 ### 📂 `aave/` - Aave Protocol Testing
 Core Aave protocol integration tests with comprehensive database functionality.
 
-- **`test-aave-v2-adapter.ts`** - ✨ **Enhanced** - Aave V2 protocol adapter with full database integration, risk assessment, and provider data population
-- **`test-aave-v3-adapter.ts`** - ✨ **Enhanced** - Aave V3 protocol adapter with full database integration, risk assessment, and provider data population
+- **`test-aave-v2-adapter.ts`** - Aave V2 protocol adapter with full database integration, risk assessment, and provider data population
+- **`test-aave-v3-adapter.ts`** - Aave V3 protocol adapter with full database integration, risk assessment, and provider data population
 - **`test-aave-data-provider.ts`** - Tests Aave data provider functionality
 - **`test-weth-position.ts`** - Tests WETH-specific position handling
 - **`check-aave-addresses-book.ts`** - Validates Aave contract addresses from official address book
@@ -28,7 +28,7 @@ Core Aave protocol integration tests with comprehensive database functionality.
 Database setup, testing, and maintenance utilities.
 
 - **`create-database.ts`** - Creates the oev_feed PostgreSQL database
-- **`reset-database.ts`** - 🆕 **NEW** - Truncates all tables and resets auto-increment sequences for fresh testing
+- **`reset-database.ts`** - Truncates all tables and resets auto-increment sequences for fresh testing
 - **`test-database-connection.ts`** - Full database connection test with TypeORM
 - **`test-database-connection-simple.ts`** - Simple database connectivity test
 - **`check-database-positions.ts`** - Monitors and validates database position data
@@ -55,7 +55,7 @@ Complete system integration tests and cross-component validation.
 ### 📂 `utilities/` - Development Utilities
 Development tools and validation utilities.
 
-- **`test-wallet-risk.ts`** - 🆕 **NEW** - Comprehensive wallet risk assessment across all supported DeFi protocols with clean reporting
+- **`test-wallet-risk.ts`** - Comprehensive wallet risk assessment across all supported DeFi protocols with clean reporting
 - **`verify-contracts.ts`** - Automates smart contract address and bytecode verification
 - **`test-path-aliases.ts`** - Validates TypeScript path alias configuration and import boundaries
 

@@ -8,7 +8,7 @@ async function bootstrap() {
   const logger = new Logger('Bootstrap');
 
   // Set global prefix
-  app.setGlobalPrefix('api/v1.0.0');
+  app.setGlobalPrefix('api/v1');
 
   // Error handling is now managed by ErrorHandlingInterceptor in middleware layer
   // No need for global exception filter - using comprehensive middleware approach
@@ -23,10 +23,16 @@ async function bootstrap() {
     .setVersion('1.0.0')
     .build();
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api/v1.0.0/docs', app, document);
+  SwaggerModule.setup('api/v1/docs', app, document);
 
-  await app.listen(3000);
-  logger.log(`Application is running on: ${await app.getUrl()}`);
+  await app.listen(3000, 'localhost');
+  const baseUrl = 'http://localhost:3000';
+
+  // Log application startup information
+  logger.log(`Application is running on: ${baseUrl}`);
+  logger.log(`API Documentation: ${baseUrl}/api/v1/docs`);
+  logger.log(`Health Check: ${baseUrl}/api/v1/middleware-demo/health`);
+  logger.log(`Metrics: ${baseUrl}/metrics`);
 }
 
 bootstrap();

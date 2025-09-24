@@ -32,8 +32,6 @@ export class ProtocolAdapterFactory {
     // Create a unique key for caching
     const key = `${protocol}-${network}`;
     
-    this.logger.debug(`Creating adapter for ${key}`, { protocol, network });
-    
     // Return cached adapter if available
     if (this.adapters.has(key)) {
       this.logger.debug(`Returning cached adapter for ${key}`);
@@ -68,8 +66,9 @@ export class ProtocolAdapterFactory {
       this.logger.log(`Successfully created adapter for ${key}`);
       return adapter;
     } catch (error) {
-      this.logger.error(`Failed to create adapter for ${key}:`, error);
-      throw error;
+      // Convert adapter creation failures to warnings to prevent app startup failures
+      this.logger.warn(`Failed to create adapter for ${key}: ${error instanceof Error ? error.message : String(error)}`);
+      throw error; // Re-throw so the service can catch and handle gracefully
     }
   }
   

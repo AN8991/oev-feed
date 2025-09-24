@@ -7,6 +7,7 @@ import { ProviderConfigModule } from '@infrastructure/config/provider-config.mod
 /**
  * Protocol Adapter Module
  * Provides protocol adapters as NestJS services following hexagonal architecture
+ * Note: AavePositionMapper dependency will be resolved from AppModule.
  */
 @Module({
   imports: [ConfigModule, ProviderConfigModule],
