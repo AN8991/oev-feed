@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import { DataSource } from 'typeorm';
+
 // Use adapter entities instead of domain entities (architectural compliance)
 import { PositionEntity } from './adapters/secondary/database/typeorm/entities/position.entity';
 import { Provider } from './adapters/secondary/database/typeorm/entities/provider.entity';
@@ -10,6 +11,9 @@ import { Transaction } from './adapters/secondary/database/typeorm/entities/tran
 import { OevOpportunity } from './adapters/secondary/database/typeorm/entities/oev-opportunity.entity';
 import { ProviderHealth } from './adapters/secondary/database/typeorm/entities/provider-health.entity';
 import { ProviderRequest } from './adapters/secondary/database/typeorm/entities/provider-request.entity';
+
+// Import migration
+import { AddProtocolNetworkLastUpdatedToUsers1737744000000 } from './infrastructure/database/migrations/1737744000000-AddProtocolNetworkLastUpdatedToUsers';
 
 export const AppDataSource = new DataSource({
   type: 'postgres',
@@ -29,6 +33,8 @@ export const AppDataSource = new DataSource({
     Block,
     OevOpportunity,
   ],
-  migrations: ['src/migrations/*.ts'],
+  migrations: [
+    AddProtocolNetworkLastUpdatedToUsers1737744000000,
+  ],
   synchronize: false,
 });

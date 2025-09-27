@@ -1,8 +1,5 @@
 /**
- * TypeORM Configuration Service
- * 
  * Provides TypeORM configuration using proper NestJS dependency injection
- * Replaces the legacy singleton pattern with injectable service
  */
 
 import { Injectable } from '@nestjs/common';

@@ -28,6 +28,7 @@ export class AaveV3EthereumAdapter implements ProtocolAdapterPort {
   private poolContract: Contract | null = null;
   private dataProviderContract: Contract | null = null;
   private oracleContract: Contract | null = null;
+  private multicallContract: Contract | null = null; // Multicall3 contract
   
   // Provider
   private provider: JsonRpcProvider | null = null;
@@ -37,6 +38,47 @@ export class AaveV3EthereumAdapter implements ProtocolAdapterPort {
   
   // Initialization state
   private initialized = false;
+  
+  /**
+   * Add delay between RPC calls to respect rate limits
+   */
+  private async delay(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  /**
+   * Retry operation with exponential backoff for rate limit errors
+   */
+  private async retryWithBackoff<T>(
+    operation: () => Promise<T>,
+    maxRetries: number = 3,
+    baseDelay: number = 1000
+  ): Promise<T> {
+    for (let i = 0; i < maxRetries; i++) {
+      try {
+        return await operation();
+      } catch (error: any) {
+        const errorMessage = error?.message || String(error);
+        
+        // Check if this is a rate limit error
+        const isRateLimitError = errorMessage.includes('Too Many Requests') || 
+                                errorMessage.includes('rate limit') ||
+                                errorMessage.includes('429');
+        
+        if (isRateLimitError && i < maxRetries - 1) {
+          // Exponential backoff: 1s, 2s, 4s
+          const delay = baseDelay * Math.pow(2, i);
+          this.logger.warn(`Rate limit hit (attempt ${i + 1}/${maxRetries}), retrying in ${delay}ms:`, errorMessage);
+          await this.delay(delay);
+          continue;
+        }
+        
+        // Re-throw if not a rate limit error or we've exhausted retries
+        throw error;
+      }
+    }
+    throw new Error('Max retries exceeded');
+  }
   
   /**
    * Constructor
@@ -106,13 +148,15 @@ export class AaveV3EthereumAdapter implements ProtocolAdapterPort {
         throw new Error(`RPC provider connectivity failed: ${providerError instanceof Error ? providerError.message : String(providerError)}`);
       }
       
-      // Pool contract (V3 ABI) - Test connection first
-      this.logger.debug(`Creating pool contract with address: ${this.poolAddress}`);
+      // Initialize contracts
       this.poolContract = new Contract(
         this.poolAddress,
         [
           'function getUserAccountData(address user) view returns (uint256 totalCollateralBase, uint256 totalDebtBase, uint256 availableBorrowsBase, uint256 currentLiquidationThreshold, uint256 ltv, uint256 healthFactor)',
-          'function getReservesList() view returns (address[])'
+          'function getReservesList() view returns (address[])',
+          // Event signatures for user discovery
+          'event Supply(address indexed reserve, address user, address indexed onBehalfOf, uint256 amount, uint16 indexed referralCode)',
+          'event Borrow(address indexed reserve, address user, address indexed onBehalfOf, uint256 amount, uint8 interestRateMode, uint256 borrowRate, uint16 indexed referralCode)'
         ],
         this.provider
       );
@@ -147,6 +191,15 @@ export class AaveV3EthereumAdapter implements ProtocolAdapterPort {
         this.oracleAddress,
         [
           'function getAssetPrice(address asset) view returns (uint256)'
+        ],
+        this.provider
+      );
+      
+      // Initialize Multicall3 contract for batch processing (read-only)
+      this.multicallContract = new Contract(
+        '0xcA11bde05977b3631167028862bE2a173976CA11b', // Multicall3 on Ethereum
+        [
+          'function tryAggregate(bool requireSuccess, tuple(address target, bytes callData)[] calls) view returns (tuple(bool success, bytes returnData)[] returnData)'
         ],
         this.provider
       );
@@ -197,7 +250,7 @@ export class AaveV3EthereumAdapter implements ProtocolAdapterPort {
         const normalizedUserAddress = normalizeAddress(userAddress);
         this.logger.debug(`User address normalized: ${normalizedUserAddress}`);
       // Get list of reserves from Pool contract
-      const reserves = await this.getReservesList();
+      const reserves = await this.retryWithBackoff(() => this.getReservesList());
       this.logger.debug(`Found ${reserves.length} reserves`);
       //this.logger.debug(`Reserves: ${reserves.join(', ')}`);
 
@@ -205,26 +258,33 @@ export class AaveV3EthereumAdapter implements ProtocolAdapterPort {
       const positionDTOs: AavePositionDTO[] = [];
       let failedAssets: string[] = [];
 
-        // Get account data for health factor, LTV, liquidation threshold
+      // Get account data for health factor, LTV, liquidation threshold
         let accountData: any;
         try {
-          accountData = await this.poolContract!.getUserAccountData(normalizedUserAddress);
+          accountData = await this.retryWithBackoff(() => 
+            this.poolContract!.getUserAccountData(normalizedUserAddress)
+          );
         this.logger.debug(`Account data for ${normalizedUserAddress}:`);
       } catch (err) {
         this.logger.error('Error fetching accountData:', err);
         throw err;
       }
 
+      // Add delay between major contract calls
+      await this.delay(100);
+
       for (const assetAddress of reserves) {
         try {
           // Get user reserve data
-          const reserveData = await this.dataProviderContract!.getUserReserveData(assetAddress, normalizedUserAddress);
+          const reserveData = await this.retryWithBackoff(() =>
+            this.dataProviderContract!.getUserReserveData(assetAddress, normalizedUserAddress)
+          );
 
           // Get asset symbol and decimals
           let symbol: string = '', decimals: number = 18;
           try {
-            symbol = await this.getTokenSymbol(assetAddress);
-            decimals = await this.getTokenDecimals(assetAddress);
+            symbol = await this.retryWithBackoff(() => this.getTokenSymbol(assetAddress));
+            decimals = await this.retryWithBackoff(() => this.getTokenDecimals(assetAddress));
           } catch (err) {
             this.logger.error(`Error fetching metadata for ${assetAddress}:`, err);
           }
@@ -232,10 +292,15 @@ export class AaveV3EthereumAdapter implements ProtocolAdapterPort {
           // Get price
           let price: string = '0';
           try {
-            price = await this.oracleContract!.getAssetPrice(assetAddress);
+            price = await this.retryWithBackoff(() =>
+              this.oracleContract!.getAssetPrice(assetAddress)
+            );
           } catch (err) {
             this.logger.error(`Error fetching price for ${assetAddress}:`, err);
           }
+
+          // Add delay after asset processing before next asset
+          await this.delay(50);
 
           // Check if user has any position in this asset
           const hasCollateral = BigInt(reserveData.currentATokenBalance) > 0n;
@@ -310,6 +375,9 @@ export class AaveV3EthereumAdapter implements ProtocolAdapterPort {
         // Error already logged above with this.logger.error
         // Continue with next user address
       }
+
+      // Add delay between user processing to respect rate limits
+      await this.delay(200);
     }
     
     return allPositions;
@@ -542,6 +610,233 @@ export class AaveV3EthereumAdapter implements ProtocolAdapterPort {
     } catch (error) {
       this.logger.error('Error formatting percentage:', error instanceof Error ? error : new Error(String(error)));
       return '0';
+    }
+  }
+  
+  /**
+   * Discover active users with positions that have health factor below threshold
+   * Uses direct contract queries to find users with active positions
+   * @param network Network identifier (should be 'ethereum')
+   * @param fromTimestamp Start timestamp for filtering (May 2025)
+   * @param toTimestamp End timestamp for filtering (current date)
+   * @returns Promise resolving to array of user discovery results
+   */
+  public async discoverActiveUsers(
+    network: string,
+    fromTimestamp: Date,
+    toTimestamp: Date
+  ): Promise<Array<{
+    address: string;
+    protocol: string;
+    network: string;
+    healthFactor: number;
+    collateral: string;
+    debt: string;
+  }>> {
+    await this.ensureInitialized();
+    
+    this.logger.log(`Starting user discovery for AAVE V3 on ${network} from ${fromTimestamp} to ${toTimestamp}`);
+    
+    try {
+      if (!this.poolContract) {
+        throw new Error('Pool contract not initialized');
+      }
+
+      // Convert timestamps to block estimates (Ethereum ~12 seconds per block)
+      const currentTimestamp = Math.floor(Date.now() / 1000);
+      const fromTimestampSeconds = Math.floor(fromTimestamp.getTime() / 1000);
+      const toTimestampSeconds = Math.floor(toTimestamp.getTime() / 1000);
+      
+      // Calculate block ranges based on timestamps
+      const blocksFromStart = Math.floor((currentTimestamp - fromTimestampSeconds) / 12); // ~12 seconds per block
+      const blocksFromEnd = Math.floor((currentTimestamp - toTimestampSeconds) / 12);
+      
+      // Get current block number
+      if (!this.provider) {
+        throw new Error('Provider not available');
+      }
+      const currentBlock = await this.provider.getBlockNumber();
+      
+      // Calculate fromBlock and toBlock based on timestamps
+      const fromBlock = Math.max(0, currentBlock - blocksFromStart);
+      const toBlock = Math.max(0, currentBlock - blocksFromEnd);
+      
+      this.logger.debug(`Querying blocks from ${fromBlock} to ${toBlock} (${blocksFromStart} blocks, ~${Math.floor(blocksFromStart * 12 / 3600)} hours of data)`);
+      
+      // Query events in chunks to avoid RPC limits (max 10,000 results per query)
+      const CHUNK_SIZE = 5000; // Query 5000 blocks at a time
+      const allDepositEvents: any[] = [];
+      const allBorrowEvents: any[] = [];
+      
+      for (let start = fromBlock; start < toBlock; start += CHUNK_SIZE) {
+        const end = Math.min(start + CHUNK_SIZE - 1, toBlock);
+        
+        this.logger.debug(`Querying chunk: blocks ${start} to ${end}`);
+        
+        try {
+          const [depositChunk, borrowChunk] = await Promise.all([
+            this.poolContract!.queryFilter(this.poolContract!.filters.Supply(), start, end),
+            this.poolContract!.queryFilter(this.poolContract!.filters.Borrow(), start, end)
+          ]);
+          
+          allDepositEvents.push(...depositChunk);
+          allBorrowEvents.push(...borrowChunk);
+          
+        } catch (error: any) {
+          if (error.message.includes('more than 10000 results')) {
+            this.logger.warn(`Chunk ${start}-${end} has too many events, skipping to avoid RPC limits`);
+          } else {
+            throw error;
+          }
+        }
+      }
+      
+      this.logger.debug(`Total events collected: ${allDepositEvents.length} supplies, ${allBorrowEvents.length} borrows`);
+      
+      // Extract unique user addresses from events
+      const userAddresses = new Set<string>();
+      
+      // Add users from supply events (AAVE V3 uses Supply instead of Deposit)
+      allDepositEvents.forEach((event: any) => {
+        if ('args' in event && event.args?.user) {
+          userAddresses.add(event.args.user);
+        }
+      });
+      
+      // Add users from borrow events  
+      allBorrowEvents.forEach((event: any) => {
+        if ('args' in event && event.args?.user) {
+          userAddresses.add(event.args.user);
+        }
+      });
+      
+      this.logger.debug(`Found ${userAddresses.size} unique users from ${allDepositEvents.length} supplies and ${allBorrowEvents.length} borrows`);
+      
+      const discoveredUsers: Array<{
+        address: string;
+        protocol: string;
+        network: string;
+        healthFactor: number;
+        collateral: string;
+        debt: string;
+      }> = [];
+      
+      // Process users in batches using multicall for health factor checks
+      const BATCH_SIZE = 10; // Start with smaller batch size for testing
+      this.logger.debug(`Processing ${userAddresses.size} users in batches of ${BATCH_SIZE}`);
+      
+      const userAddressArray = Array.from(userAddresses);
+      
+      for (let i = 0; i < userAddressArray.length; i += BATCH_SIZE) {
+        const batch = userAddressArray.slice(i, i + BATCH_SIZE);
+        this.logger.debug(`Processing batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(userAddressArray.length / BATCH_SIZE)} (${batch.length} users)`);
+        
+        try {
+          // Try multicall first
+          let batchResults: any[] = [];
+          let useMulticall = true;
+          
+          if (this.multicallContract) {
+            try {
+              // Prepare multicall calls for this batch
+              const calls = batch.map(userAddress => ({
+                target: this.poolAddress,
+                callData: this.poolContract!.interface.encodeFunctionData('getUserAccountData', [userAddress])
+              }));
+              
+              // Execute multicall
+              const multicallResult = await this.multicallContract.tryAggregate(true, calls);
+              this.logger.debug(`Multicall returned ${multicallResult.length} results`);
+              
+              // Process multicall results
+              for (let j = 0; j < multicallResult.length; j++) {
+                const { success, returnData } = multicallResult[j];
+                if (success) {
+                  try {
+                    const decodedResult = this.poolContract!.interface.decodeFunctionResult('getUserAccountData', returnData);
+                    batchResults.push({ userAddress: batch[j], data: decodedResult, success: true });
+                  } catch (decodeError) {
+                    this.logger.debug(`Failed to decode multicall result for ${batch[j]}:`, decodeError);
+                    batchResults.push({ userAddress: batch[j], data: null, success: false });
+                  }
+                } else {
+                  batchResults.push({ userAddress: batch[j], data: null, success: false });
+                }
+              }
+              
+            } catch (multicallError) {
+              this.logger.warn(`Multicall failed for batch, falling back to sequential calls:`, multicallError);
+              useMulticall = false;
+            }
+          } else {
+            useMulticall = false;
+          }
+          
+          // Fallback to sequential calls if multicall failed or unavailable
+          if (!useMulticall) {
+            this.logger.debug('Using sequential calls for this batch');
+            for (const userAddress of batch) {
+              try {
+                const accountData = await this.poolContract!.getUserAccountData(userAddress);
+                batchResults.push({ userAddress, data: accountData, success: true });
+              } catch (error) {
+                this.logger.debug(`Sequential call failed for ${userAddress}:`, error);
+                batchResults.push({ userAddress, data: null, success: false });
+              }
+            }
+          }
+          
+          // Process batch results
+          for (const result of batchResults) {
+            if (!result.success || !result.data) continue;
+            
+            try {
+              const [
+                totalCollateralBase,
+                totalDebtBase,
+                availableBorrowsBase,
+                currentLiquidationThreshold,
+                ltv,
+                healthFactor
+              ] = result.data;
+              
+              // Convert health factor to number and check if it's <= 5 and user has positions
+              const hfValue = parseFloat(formatToEther(healthFactor));
+              const collateralValue = parseFloat(formatToEther(totalCollateralBase));
+              const debtValue = parseFloat(formatToEther(totalDebtBase));
+              
+              // Filter: health factor <= 5 AND has active positions (collateral > 0 OR debt > 0)
+              if (hfValue <= 5 && hfValue > 0 && (collateralValue > 0 || debtValue > 0)) {
+                discoveredUsers.push({
+                  address: normalizeAddress(result.userAddress),
+                  protocol: this.PROTOCOL,
+                  network: this.NETWORK,
+                  healthFactor: hfValue,
+                  collateral: totalCollateralBase.toString(),
+                  debt: totalDebtBase.toString(),
+                });
+                
+                this.logger.debug(`Found active user ${result.userAddress} with HF: ${hfValue}`);
+              }
+            } catch (processError) {
+              this.logger.debug(`Failed to process result for ${result.userAddress}:`, processError);
+            }
+          }
+          
+        } catch (batchError) {
+          this.logger.warn(`Batch processing failed for batch starting at index ${i}:`, batchError);
+          // Continue with next batch instead of failing completely
+        }
+      }
+      
+      this.logger.log(`Discovery completed: found ${discoveredUsers.length} active users`);
+      return discoveredUsers;
+      
+    } catch (error: any) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      this.logger.error(`Error during user discovery: ${errorMessage}`, errorStack);
+      throw error;
     }
   }
   

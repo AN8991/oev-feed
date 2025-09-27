@@ -65,9 +65,17 @@ Development tools and validation utilities.
 Each script can be run individually with ts-node:
 
 ```bash
-# Aave Protocol testing
+# Positon discovery
+npx ts-node -r tsconfig-paths/register scripts/discover/aave-v2-user-discovery.ts
+npx ts-node -r tsconfig-paths/register scripts/discover/aave-v3-user-discovery.ts
+
+# Aave Protocol testing with single wallet address
 npx ts-node -r tsconfig-paths/register scripts/aave/test-aave-v3-adapter.ts
 npx ts-node -r tsconfig-paths/register scripts/aave/test-aave-v2-adapter.ts
+
+# Aave Positions Processing for multiple wallets
+npx ts-node -r tsconfig-paths/register scripts/aave/aave-v2-position-processor.ts --network ethereum --max-users 3 --batch-size 2
+npx ts-node -r tsconfig-paths/register scripts/aave/aave-v3-position-processor.ts --network ethereum --max-users 3 --batch-size 2
 
 # Database operations
 npx ts-node -r tsconfig-paths/register scripts/database/create-database.ts

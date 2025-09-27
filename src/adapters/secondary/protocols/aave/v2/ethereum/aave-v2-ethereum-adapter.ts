@@ -4,8 +4,10 @@ import { ProtocolAdapterPort } from '../../../../../../domain/ports/secondary/pr
 import { PositionModel } from '../../../../../../domain/models/position.model';
 import { AavePositionDTO } from '../../../../../../application/dto/aave-position.dto';
 import { AavePositionMapper } from '../../../../../../application/mappers/aave-position.mapper';
-import { normalizeAddressChecksum as normalizeAddress } from '../../../../../../domain/utils/address-utils';
+import { normalizeAddress } from '../../../../../../domain/utils/address-utils';
 import { formatToEther } from '../../../../../../domain/utils/numeric-utils';
+import { Protocol } from '../../../../../../domain/enums/protocols.enum';
+import { Network } from '../../../../../../domain/enums/networks.enum';
 
 /**
  * Aave V2 Protocol Adapter for Ethereum
@@ -96,7 +98,10 @@ export class AaveV2EthereumAdapter implements ProtocolAdapterPort {
         this.poolAddress,
         [
           'function getUserAccountData(address user) view returns (uint256 totalCollateralETH, uint256 totalDebtETH, uint256 availableBorrowsETH, uint256 currentLiquidationThreshold, uint256 ltv, uint256 healthFactor)',
-          'function getReservesList() view returns (address[])'
+          'function getReservesList() view returns (address[])',
+          // Event signatures for user discovery
+          'event Deposit(address indexed reserve, address user, address indexed onBehalfOf, uint256 amount, uint16 indexed referral)',
+          'event Borrow(address indexed reserve, address user, address indexed onBehalfOf, uint256 amount, uint256 borrowRateMode, uint256 borrowRate, uint16 indexed referral)'
         ],
         this.provider
       );
@@ -517,6 +522,133 @@ export class AaveV2EthereumAdapter implements ProtocolAdapterPort {
     } catch (error) {
       this.logger.error('Error calculating debt in ETH:', undefined, error instanceof Error ? error : new Error(String(error)));
       return '0';
+    }
+  }
+  
+  /**
+   * Discover active users with positions that have health factor below threshold
+   * Uses direct contract queries to find users with active positions
+   * @param network Network identifier (should be 'ethereum')
+   * @param fromTimestamp Start timestamp for filtering (May 2025)
+   * @param toTimestamp End timestamp for filtering (current date)
+   * @returns Promise resolving to array of user discovery results
+   */
+  public async discoverActiveUsers(
+    network: Network,
+    fromTimestamp: Date,
+    toTimestamp: Date
+  ): Promise<Array<{
+    address: string;
+    protocol: Protocol;
+    network: Network;
+    healthFactor: number;
+    collateral: string;
+    debt: string;
+  }>> {
+    await this.ensureInitialized();
+    
+    this.logger.log(`Starting user discovery for AAVE V2 on ${network} from ${fromTimestamp} to ${toTimestamp}`);
+    
+    try {
+      if (!this.poolContract) {
+        throw new Error('Pool contract not initialized');
+      }
+
+      // Query blockchain events to discover real users with active positions
+      this.logger.debug('Querying AAVE V2 events to discover active users...');
+      
+      // Get current block number
+      if (!this.provider) {
+        throw new Error('Provider not available');
+      }
+      const currentBlock = await this.provider.getBlockNumber();
+      const fromBlock = Math.max(0, currentBlock - 10000); // Last ~10k blocks (~2-3 days)
+      
+      // Query Deposit and Borrow events from the Pool contract
+      const depositFilter = this.poolContract.filters.Deposit();
+      const borrowFilter = this.poolContract.filters.Borrow();
+      
+      const [depositEvents, borrowEvents] = await Promise.all([
+        this.poolContract.queryFilter(depositFilter, fromBlock, currentBlock),
+        this.poolContract.queryFilter(borrowFilter, fromBlock, currentBlock)
+      ]);
+      
+      // Extract unique user addresses from events
+      const userAddresses = new Set<string>();
+      
+      // Add users from deposit events
+      depositEvents.forEach(event => {
+        if ('args' in event && event.args?.user) {
+          userAddresses.add(event.args.user);
+        }
+      });
+      
+      // Add users from borrow events  
+      borrowEvents.forEach(event => {
+        if ('args' in event && event.args?.user) {
+          userAddresses.add(event.args.user);
+        }
+      });
+      
+      this.logger.debug(`Found ${userAddresses.size} unique users from ${depositEvents.length} deposits and ${borrowEvents.length} borrows`);
+      
+      const discoveredUsers: Array<{
+        address: string;
+        protocol: Protocol;
+        network: Network;
+        healthFactor: number;
+        collateral: string;
+        debt: string;
+      }> = [];
+      
+      // Check each user's current account data
+      for (const userAddress of userAddresses) {
+        try {
+          // Get user account data from AAVE pool
+          const accountData = await this.poolContract.getUserAccountData(userAddress);
+          
+          const [
+            totalCollateralETH,
+            totalDebtETH,
+            availableBorrowsETH,
+            currentLiquidationThreshold,
+            ltv,
+            healthFactor
+          ] = accountData;
+          
+          // Convert health factor to number and check if it's below 5 and user has positions
+          const hfValue = parseFloat(formatToEther(healthFactor));
+          const collateralValue = parseFloat(formatToEther(totalCollateralETH));
+          const debtValue = parseFloat(formatToEther(totalDebtETH));
+          
+          // Filter: health factor < 5 AND has active positions (collateral > 0 OR debt > 0)
+          if (hfValue < 5 && hfValue > 0 && (collateralValue > 0 || debtValue > 0)) {
+            discoveredUsers.push({
+              address: normalizeAddress(userAddress),
+              protocol: Protocol.AAVE_V2,
+              network: Network.ETHEREUM,
+              healthFactor: hfValue,
+              collateral: totalCollateralETH.toString(),
+              debt: totalDebtETH.toString(),
+            });
+            
+            this.logger.debug(`Found active user ${userAddress} with HF: ${hfValue}`);
+          }
+        } catch (error) {
+          // Skip users that don't exist or have errors
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          this.logger.debug(`Skipping user ${userAddress}: ${errorMessage}`);
+        }
+      }
+      
+      this.logger.log(`Discovery completed: found ${discoveredUsers.length} active users`);
+      return discoveredUsers;
+      
+    } catch (error: any) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      this.logger.error(`Error during user discovery: ${errorMessage}`, errorStack);
+      throw error;
     }
   }
   

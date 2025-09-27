@@ -27,75 +27,15 @@ Silo Finance V2 Docs: https://docs.silo.finance/docs/category/dev-tutorials
 Go through the project codebase and understand what is the objective we want to achieve. Once you have understood the core objective explain how we are going about the implementation. What are the current features we have working and what are the features we want to expand upon in near future. Finally have a look at the 3 files - and determine if they need updation based on current codebase - if they need updating then go ahead and update the same.
 
 
-1. Core Objective of the Project
+Core Objective of the Project
 OEV Feed is a DeFi data feed service designed to track, aggregate, and monitor user positions across multiple DeFi protocols (currently focused on Aave V2/V3, with plans for Silo and others). It aims to provide real-time, protocol-agnostic position data—including collateral, debt, and health factors—across multiple blockchains and RPC providers, with high resilience and extensibility.
 
-Key goals:
+Latest Project Goals as of 24th September 2025:
 
-Protocol/network abstraction (easy to add new protocols/networks)
-Resilient provider selection and fallback (via adapters, health monitoring, circuit breaker, etc.)
-Real-time and batch data delivery (REST, GraphQL, WebSocket)
-Maintainable, testable, and scalable architecture (Hexagonal/Ports & Adapters)
-2. How the Implementation Achieves This
-Hexagonal Architecture:
+As of now the application can handle only one wallet address input at a time. We will now expand the project to include functionality to fetch a list of wallet address from protocols and save it to our database. In our database we already have a table called "users" where we store the wallet addresses and id. We can modify the table to add in 3 new columns - one for the protocol, one for the network (We can reference the same columns in positions model as its already there) and one as lastUpdated (last updated date and time). Once done, users table can be used to store the wallet addresses and protocol and network details along with the last updated date and time which represent when the data was last fetched by our application. Think of us creating a UserDiscoveryService which will fetch the list of users from the protocols and save it to our database.
 
-Clear separation between core domain logic, application orchestration, adapters (protocols, providers, APIs), infrastructure (logging, metrics, health), and shared utilities.
-Uses TypeScript path aliases for layer boundaries and import clarity.
-Key Implementation Patterns:
+Now the second part of our job is actually building a script which we can schedule as a job in our system to run at a prefix time. This script will have the logic for fetching data from the protocols and saving it to our database. For now we will only build one for AAVE as this is the focus area, however we will structure the code & project in a way that it can be easily extended to other protocols in the future. Our scripts will be different for different versions of AAVE - so AAVE V2 will have its own script and AAVE V3 will have its own script. Intially the script will have a simple filter criteria- active positions (non-zero collateral or debt) with health factor below 5 with a From and To timestamp that will allow us to select a time range (Intially we will only fetch data from May 2025 to current date). Also we will have multi network support and it should be configurable  (Ethereum initially, extensible to others). We will use Direct contract queries for users with positions because subgraph sections arent yet fully functional within the project.
 
-Provider Adapters: Abstraction for RPC providers (Alchemy, Infura, etc.), with health monitoring, fallback, and rate limiting.
-Protocol Adapters: Abstraction for DeFi protocols (Aave, Silo, etc.), enabling protocol-agnostic querying.
-Query Orchestration: Application layer coordinates protocol adapters, handles multi-protocol queries, parallel execution, and advanced filtering.
-Infrastructure Utilities: Circuit breaker, structured logging, metrics, dashboard, request distributor.
+The primary goal is to get the script working and saving the data to our database. The batch processing work will be done at the very last once we get everything working properly. 
 
-Testing: Unit, integration, and E2E tests, with coverage targets for each layer.
-3. Current Working Features
-Provider Adapters: Alchemy and Infura adapters, with health monitoring, fallback, and smart selection.
-Protocol Adapters: Aave V2 and V3 (Ethereum) implemented; base structure for Silo and others.
-Query Orchestration: Query orchestrator service for multi-protocol, multi-network queries.
-Infrastructure: Circuit breaker, metrics collection, provider health monitoring, structured logging, dashboard service.
-Database Integration: TypeORM entities for positions, users, and opportunities; repository pattern.
-Testing: Comprehensive unit and integration tests for provider adapters and utilities.
-Documentation: Guides for adapters, architecture, import conventions, and migration tools.
-
-4. Features to Expand Upon
-Protocol Support: Implement Silo (Arbitrum), Aave (Base), and other protocols (Compound, Curve, etc.).
-Network Expansion: Add more networks (Optimism, Polygon, etc.).
-Primary Adapters: REST/GraphQL/WebSocket handlers for position data (some are planned, not fully implemented).
-Advanced Querying: Parallel/batch queries, advanced filters (health factor, collateral/debt, protocol/network).
-Portfolio & Risk Analysis: Portfolio aggregation, risk analytics, and alerting.
-Performance: Enhanced caching, batch processing, and response time optimizations.
-UI/Analytics: Position visualization dashboard, historical analytics.
-Testing: Expand E2E and integration coverage for new adapters and features.
-
-Data Flow after fetch:
-
-1. Data Transformation & Normalization
-Protocol Adapter Layer:
-Raw data from external DeFi protocols (e.g., Aave, Silo) is transformed into protocol-agnostic domain models (e.g., PositionModel).
-DTO Mapping:
-Data is mapped into Data Transfer Objects (DTOs) if required for API responses.
-2. Business Logic Processing
-Domain/Application Layer:
-Risk Analysis: Health factors, liquidation risks, and other analytics are computed.
-Portfolio Aggregation: If the user requests multi-protocol or multi-network data, positions are aggregated and summarized.
-Filtering: Advanced filters (by protocol, network, health factor, etc.) are applied as per query parameters.
-3. Persistence (Optional)
-Database Adapter Layer:
-Fetched/processed data may be persisted in the database for caching, historical analysis, or audit trails.
-Entities like User, Position, and OevOpportunity are updated or inserted as needed.
-4. Response Construction
-Primary Adapter Layer (API):
-Data is formatted for the requested interface (REST, GraphQL, WebSocket).
-Partial responses and error handling are managed (e.g., if some protocols fail, the response still contains available data).
-5. Delivery to Client
-API/Socket Layer:
-Data is sent to the requesting client (frontend, dashboard, or external consumer).
-For real-time updates, WebSocket or push mechanisms are used.
-6. Post-Delivery Actions (Optional/Advanced)
-Metrics & Logging:
-Structured logs and metrics are recorded for monitoring, debugging, and analytics.
-Alerting:
-If risk thresholds are breached (e.g., low health factor), alerts or notifications can be triggered.
-Dashboard Update:
-Monitoring dashboards are refreshed with the latest data and analytics
+We have to leverage what we have already built and not create new code unecessarily. Always check if there are existing NestJS packages for anything you are trying to build. Dont overengineer things when simplified solutions are present. Code reusability, modularity and simplicity are the key factors.

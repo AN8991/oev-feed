@@ -37,6 +37,9 @@ import { RequestDistributor } from './infrastructure/utils/request-distributor';
 import { DataSourceFallback } from './infrastructure/utils/data-source-fallback';
 import { ProviderHealthIntegrationService } from './application/services/provider-health-integration.service';
 
+// User Discovery Service
+import { UserDiscoveryService } from './application/services/user-discovery/user-discovery.service';
+
 // Middleware, Time and Utils
 import { MiddlewareModule, LoggingInterceptor, MetricsInterceptor, CircuitBreakerInterceptor, ErrorHandlingInterceptor } from './middleware';
 import { TimeModule } from './infrastructure/services/time.module';
@@ -131,6 +134,7 @@ class AppController {
     // Application Services
     RiskAssessmentService,
     QueryOrchestratorService,
+    UserDiscoveryService,
     ProtocolAdapterFactory,
     ProtocolAdapterService,
     ProviderFactory,
