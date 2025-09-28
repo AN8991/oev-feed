@@ -3,6 +3,8 @@
 ## Overview
 
 This document describes the middleware implemented for cross-cutting concerns in the OEV Feed project.
+
+**Recent Enhancement**: Added production-grade rate limiting and retry logic to protocol adapters for enhanced RPC reliability
 ## Architecture
 
 ### Core Interceptors
@@ -178,4 +180,4 @@ http_request_duration_seconds_bucket{method="GET",route="/api/positions",le="0.1
 // Per-handler instances for granular control
 ```
 
-*Middleware Implementation Guide - Updated: 2025-09-21*
+*Middleware Implementation Guide - Updated: 2025-09-27*

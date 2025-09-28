@@ -2,6 +2,8 @@
 
 This document outlines the standardized approach to imports in the OEV Feed codebase following **A+ (96/100) hexagonal architecture** principles with modern NestJS patterns.
 
+**Recent Enhancement**: Added production-grade rate limiting and retry logic to AAVE V3 adapter for enhanced reliability
+
 ## Path Aliases - **Modern Pattern**
 
 We use TypeScript path aliases for clear, maintainable imports that reflect the hexagonal architecture layer boundaries. **Barrel files (index.ts) are eliminated** for better optimization and clarity.
@@ -85,4 +87,4 @@ import { ProviderAdapterPort } from '@domain/ports/secondary/provider-adapter.po
 import { NetworkConfigService } from '@infrastructure/config/network.config';        // ✅ Infrastructure (when needed)
 ```
 
-*Import Guidelines - Updated: 2025-09-21*
+*Import Guidelines - Updated: 2025-09-27*
