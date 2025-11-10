@@ -31,7 +31,6 @@ async function bootstrap() {
   // Log application startup information
   logger.log(`Application is running on: ${baseUrl}`);
   logger.log(`API Documentation: ${baseUrl}/api/v1/docs`);
-  logger.log(`Health Check: ${baseUrl}/api/v1/middleware-demo/health`);
   logger.log(`Metrics: ${baseUrl}/metrics`);
 }
 

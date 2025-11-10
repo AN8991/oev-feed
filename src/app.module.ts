@@ -18,7 +18,6 @@ import { PositionsController } from './adapters/primary/rest/controllers/positio
 import { ProvidersController } from './adapters/primary/rest/controllers/providers.controller';
 import { EventsController } from './adapters/primary/rest/controllers/events.controller';
 import { RiskAssessmentController } from './adapters/primary/rest/controllers/risk-assessment.controller';
-import { MiddlewareDemoController } from './adapters/primary/rest/controllers/middleware-demo.controller';
 
 // Services
 import { RiskAnalysisService } from './application/services/risk-analysis.service';
@@ -125,7 +124,7 @@ class AppController {
     }),
     MiddlewareModule,
   ],
-  controllers: [AppController, PositionsController, ProvidersController, EventsController, RiskAssessmentController, MiddlewareDemoController],
+  controllers: [AppController, PositionsController, ProvidersController, EventsController, RiskAssessmentController],
   providers: [
     // Domain Services
     RiskAnalysisService,

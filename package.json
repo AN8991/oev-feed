@@ -23,6 +23,7 @@
     "test:risk-db": "ts-node -r tsconfig-paths/register scripts/test-risk-db-only.ts",
     "db:add-indexes": "ts-node -r tsconfig-paths/register scripts/database/add-performance-indexes.ts",
     "db:check-positions": "ts-node -r tsconfig-paths/register scripts/database/check-position-ids.ts",
+    "db:seed-providers": "ts-node -r tsconfig-paths/register scripts/database/seed-providers.ts",
     "discovery:aave-v2": "ts-node -r tsconfig-paths/register scripts/discovery/aave-v2-user-discovery.ts",
     "discovery:aave-v3": "ts-node -r tsconfig-paths/register scripts/discovery/aave-v3-user-discovery.ts",
     "build": "tsc",

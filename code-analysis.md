@@ -393,14 +393,15 @@ src/
 
 #### REST Controllers
 **Directory**: `src/adapters/primary/rest/controllers/`
-- **Status**: ✅ **COMPREHENSIVE API ENDPOINTS**
+- **Status**: ✅ **COMPREHENSIVE API ENDPOINTS (READ-ONLY)**
 - **Controllers**:
-  - **PositionsController**: Position management endpoints
+  - **PositionsController**: Position query endpoints (GET only - POST /fetch removed)
   - **ProvidersController**: Provider status and health endpoints
   - **EventsController**: Event handling endpoints
   - **RiskAssessmentController**: Risk analysis endpoints
-  - **MiddlewareDemoController**: Middleware demonstration
+  - **MiddlewareDemoController**: Removed (middleware functionality remains active)
 - **Quality**: A (90/100)
+- **Data Ingestion**: Now handled exclusively by scripts for data consistency
 - **Opportunities**: Add comprehensive Swagger decorators, input validation pipes
 
 #### GraphQL Resolvers

@@ -25,10 +25,12 @@ export class PositionsService {
   }
 
   async getPositionsByUser(userAddress: string): Promise<PositionEntity[]> {
-    return this.positionRepository.find({
-      where: { userAddress },
-      order: { lastUpdated: 'DESC' },
-    });
+    // Use case-insensitive query since addresses may be stored in checksummed format
+    return this.positionRepository
+      .createQueryBuilder('position')
+      .where('LOWER(position.userAddress) = LOWER(:address)', { address: userAddress })
+      .orderBy('position.lastUpdated', 'DESC')
+      .getMany();
   }
 
   async fetchAndSavePositions(userAddresses: string[]): Promise<PositionEntity[]> {

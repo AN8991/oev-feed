@@ -81,11 +81,13 @@ This document outlines the implementation details of the OEV Feed project, built
 ### ✅ **2.4 Adapters Layer**
 
 #### **Primary Adapters (Controllers)**
-- **REST Controllers**: Comprehensive API endpoints
-  - PositionsController, ProvidersController, EventsController
-  - RiskAssessmentController, MiddlewareDemoController
+- **REST Controllers**: Comprehensive API endpoints (Read-Only)
+  - PositionsController (GET endpoints only - data ingestion via scripts)
+  - ProvidersController, EventsController
+  - RiskAssessmentController
 - **GraphQL Resolvers**: GraphQL API support
 - **WebSocket Handlers**: Real-time communication
+- **Note**: MiddlewareDemoController removed - middleware functionality remains active
 
 #### **Secondary Adapters**
 - **Database Adapters**: 9 TypeORM entities with proper relationships

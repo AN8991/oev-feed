@@ -1,21 +1,18 @@
-import { Controller, Get, Post, Body, Param, Query, BadRequestException, NotFoundException, UsePipes } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiBody } from '@nestjs/swagger';
+import { Controller, Get, Param, Query, BadRequestException, NotFoundException } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiParam, ApiQuery, ApiResponse } from '@nestjs/swagger';
 import { PositionsService } from '../../../../application/services/positions.service';
 import { 
   SuccessResponse, 
   ErrorResponse,
   ValidationErrorResponseDto,
   PositionResponseDto, 
-  BatchOperationResponseDto,
   PaginatedResponse,
   HealthCheckResponseDto
 } from '../../../../application/dto/api-response.dto';
 import { 
-  FetchPositionsDto, 
   PositionFilterDto 
 } from '../../../../application/dto/validation.dto';
 import { 
-  DetailedValidationPipe, 
   EthereumAddressPipe 
 } from '../../../../application/pipes/validation.pipe';
 
@@ -45,7 +42,6 @@ export class PositionsController {
     description: 'Internal server error',
     type: ErrorResponse
   })
-  @UsePipes(new DetailedValidationPipe())
   async getPositions(@Query() filters: PositionFilterDto): Promise<PaginatedResponse<PositionResponseDto>> {
     // For now, return all positions - we'll implement filtering in the next phase
     const positions = await this.positionsService.getPositions();
@@ -100,43 +96,8 @@ export class PositionsController {
     return new SuccessResponse(positions, `Positions retrieved for user ${userAddress}`);
   }
 
-  @Post('fetch')
-  @ApiOperation({ 
-    summary: 'Fetch and save positions',
-    description: 'Fetch positions from blockchain protocols and save them to the database for specified user addresses'
-  })
-  @ApiBody({ type: FetchPositionsDto })
-  @ApiResponse({ 
-    status: 201, 
-    description: 'Successfully fetched and saved positions',
-    type: SuccessResponse<BatchOperationResponseDto>
-  })
-  @ApiResponse({ 
-    status: 400, 
-    description: 'Invalid request body or user addresses format',
-    type: ValidationErrorResponseDto
-  })
-  @ApiResponse({ 
-    status: 500, 
-    description: 'Internal server error',
-    type: ErrorResponse
-  })
-  @UsePipes(new DetailedValidationPipe())
-  async fetchAndSavePositions(@Body() fetchDto: FetchPositionsDto): Promise<SuccessResponse<BatchOperationResponseDto>> {
-    const result = await this.positionsService.fetchAndSavePositions(fetchDto.userAddresses);
-    
-    // Transform the result to match our BatchOperationResponseDto
-    const batchResponse: BatchOperationResponseDto = {
-      message: 'Positions fetched and saved successfully',
-      processedItems: fetchDto.userAddresses.length,
-      totalResults: Array.isArray(result) ? result.length : 0,
-      failedItems: 0,
-      completedAt: new Date().toISOString(),
-      errors: []
-    };
-    
-    return new SuccessResponse(batchResponse, 'Batch operation completed successfully', 201);
-  }
+  // POST /fetch endpoint removed - data ingestion is now handled exclusively by scripts
+  // This ensures data consistency and proper normalization through controlled processes
 
   @Get('test')
   @ApiOperation({ 

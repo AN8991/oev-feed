@@ -36,7 +36,9 @@ export class ProvidersController {
     type: ErrorResponse
   })
   async findAll(): Promise<SuccessResponse<ProviderDto[]>> {
-    const providers = await this.providerRepo.find();
+    const providers = await this.providerRepo.find({
+      relations: ['healthChecks'],
+    });
     const providerDtos = this.providerMapper.toDtoArray(providers);
     return new SuccessResponse(providerDtos, 'Providers retrieved successfully');
   }
@@ -67,7 +69,10 @@ export class ProvidersController {
     type: ErrorResponse
   })
   async findOne(@Param('name') name: string): Promise<SuccessResponse<ProviderDto>> {
-    const provider = await this.providerRepo.findOneBy({ name });
+    const provider = await this.providerRepo.findOne({
+      where: { name },
+      relations: ['healthChecks'],
+    });
     if (!provider) {
       throw new NotFoundException('Provider not found');
     }
