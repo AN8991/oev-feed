@@ -18,6 +18,11 @@ import { PositionsController } from './adapters/primary/rest/controllers/positio
 import { ProvidersController } from './adapters/primary/rest/controllers/providers.controller';
 import { EventsController } from './adapters/primary/rest/controllers/events.controller';
 import { RiskAssessmentController } from './adapters/primary/rest/controllers/risk-assessment.controller';
+// Dashboard API Controllers
+import { PortfolioController } from './adapters/primary/http/portfolio.controller';
+import { RiskController } from './adapters/primary/http/risk.controller';
+import { ProvidersHealthController } from './adapters/primary/http/providers-health.controller';
+import { WalletsController } from './adapters/primary/http/wallets.controller';
 
 // Services
 import { RiskAnalysisService } from './application/services/risk-analysis.service';
@@ -124,7 +129,18 @@ class AppController {
     }),
     MiddlewareModule,
   ],
-  controllers: [AppController, PositionsController, ProvidersController, EventsController, RiskAssessmentController],
+  controllers: [
+    AppController, 
+    PositionsController, 
+    ProvidersController, 
+    EventsController, 
+    RiskAssessmentController,
+    // Dashboard API Controllers
+    PortfolioController,
+    RiskController,
+    ProvidersHealthController,
+    WalletsController,
+  ],
   providers: [
     // Domain Services
     RiskAnalysisService,
