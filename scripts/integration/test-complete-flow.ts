@@ -12,7 +12,6 @@ import { ProtocolAdapterFactory } from '@adapters/secondary/protocols/protocol-a
 import { ProviderFactory } from '@adapters/secondary/providers/provider-factory';
 import { NetworkConfigService } from '@infrastructure/config/network.config';
 import { NetworkModule } from '@infrastructure/config/network.module';
-import { ProviderConfigModule } from '@infrastructure/config/provider-config.module';
 import { RequestDistributor } from '@infrastructure/utils/request-distributor';
 import { AavePositionMapper } from '@application/mappers/aave-position.mapper';
 import { Network } from '@domain/types/networks';
@@ -38,8 +37,7 @@ const TEST_USER_ADDRESS = '0x79682489385337996edd00eb56b4238b597bfae7';
       logging: false,
       entities: [],
     }),
-    NetworkModule,
-    ProviderConfigModule
+    NetworkModule
   ],
   providers: [
     ProtocolAdapterFactory,

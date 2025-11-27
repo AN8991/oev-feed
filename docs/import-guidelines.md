@@ -2,7 +2,9 @@
 
 This document outlines the standardized approach to imports in the OEV Feed codebase following **A+ (96/100) hexagonal architecture** principles with modern NestJS patterns.
 
-**Recent Enhancement**: Added production-grade rate limiting and retry logic to AAVE V3 adapter for enhanced reliability
+**Recent Changes**:
+- Provider configuration consolidated into `NetworkConfigService` (ProviderConfigService removed)
+- Added `--max-health-factor` parameter to user discovery scripts
 
 ## Path Aliases - **Modern Pattern**
 
@@ -49,7 +51,6 @@ import { ProtocolAdapterFactory } from '@adapters/secondary/protocols/protocol-a
 ```typescript
 import { Network } from '@domain/types/networks';           // ✅ Domain types
 import { RiskCalculator } from '@domain/models/risk.model'; // ✅ Domain models
-// ❌ NO imports from @infrastructure, @application, @adapters
 ```
 
 ### 2. **Application Layer** (`@application/*`) - **A- (92/100)**
@@ -61,7 +62,6 @@ import { RiskCalculator } from '@domain/models/risk.model'; // ✅ Domain models
 ```typescript
 import { PositionModel } from '@domain/models/position.model';     // ✅ Domain
 import { AavePositionDTO } from '@application/dto/aave-position.dto'; // ✅ Application
-// ❌ NO imports from @adapters or @infrastructure
 ```
 
 ### 3. **Infrastructure Layer** (`@infrastructure/*`) - **A+ (98/100)**
@@ -87,4 +87,4 @@ import { ProviderAdapterPort } from '@domain/ports/secondary/provider-adapter.po
 import { NetworkConfigService } from '@infrastructure/config/network.config';        // ✅ Infrastructure (when needed)
 ```
 
-*Import Guidelines - Updated: 2025-09-27*
+*Import Guidelines - Updated: 2025-11-27*

@@ -151,11 +151,11 @@ export function PortfolioOverview({ walletAddress }: PortfolioOverviewProps) {
             <CardDescription>Collateral by protocol</CardDescription>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={200}>
-              <PieChart>
+            <ResponsiveContainer width="100%" height={250}>
+              <PieChart margin={{ top: 20, right: 20, bottom: 20, left: 50 }}>
                 <Pie
                   data={protocolData}
-                  cx="50%"
+                  cx="55%"
                   cy="50%"
                   labelLine={false}
                   label={({ name, percent }) => `${name}: ${((percent || 0) * 100).toFixed(0)}%`}
@@ -180,11 +180,11 @@ export function PortfolioOverview({ walletAddress }: PortfolioOverviewProps) {
             <CardDescription>Collateral by network</CardDescription>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={200}>
-              <PieChart>
+            <ResponsiveContainer width="100%" height={250}>
+              <PieChart margin={{ top: 20, right: 20, bottom: 20, left: 50 }}>
                 <Pie
                   data={networkData}
-                  cx="50%"
+                  cx="55%"
                   cy="50%"
                   labelLine={false}
                   label={({ name, percent }) => `${name}: ${((percent || 0) * 100).toFixed(0)}%`}
@@ -209,11 +209,11 @@ export function PortfolioOverview({ walletAddress }: PortfolioOverviewProps) {
             <CardDescription>Positions by risk level</CardDescription>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={200}>
-              <PieChart>
+            <ResponsiveContainer width="100%" height={250}>
+              <PieChart margin={{ top: 20, right: 20, bottom: 20, left: 50 }}>
                 <Pie
                   data={riskData}
-                  cx="50%"
+                  cx="55%"
                   cy="50%"
                   labelLine={false}
                   label={({ name, value }) => `${name}: ${value}`}

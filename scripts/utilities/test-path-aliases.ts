@@ -13,7 +13,6 @@ import { HttpMethods } from '@domain/enums/httpMethods';
 
 // Test infrastructure layer imports (types only to avoid DI issues)
 import type { NetworkConfigService } from '@infrastructure/config/network.config';
-import type { ProviderConfigService } from '@infrastructure/config/provider-config';
 
 const logger = new Logger('PathAliasTest');
 

@@ -1,66 +1,87 @@
-<p align="center">
-  <a href="https://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# OEV Feed
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+A DeFi position monitoring and risk assessment platform built with NestJS following hexagonal architecture principles.
 
-  <p align="center">A progressive <a href="https://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## Overview
 
-## Description
+OEV Feed monitors DeFi lending positions (currently Aave V2/V3) across multiple networks, providing:
+- **Position Tracking**: Monitor collateral, debt, and health factors
+- **Risk Assessment**: Real-time risk scoring and liquidation alerts
+- **Multi-Provider Support**: 10 blockchain providers across 5 networks
+- **Dashboard**: React-based visualization of portfolio and risk metrics
 
-Nest is a framework for building efficient, scalable <a href="https://nodejs.org" target="_blank">Node.js</a> server-side applications. It uses modern JavaScript, is built with <a href="https://www.typescriptlang.org" target="_blank">TypeScript</a> (preserves compatibility with pure JavaScript) and combines elements of OOP (Object Oriented Programming), FP (Functional Programming), and FRP (Functional Reactive Programming).
+## Quick Start
 
-<p>Under the hood, Nest makes use of <a href="https://expressjs.com/" target="_blank">Express</a>, but also provides compatibility with a wide range of other libraries, like <a href="https://github.com/fastify/fastify" target="_blank">Fastify</a>, allowing for easy use of the myriad of third-party plugins which are available.</p>
+### Prerequisites
+- Node.js 18+
+- PostgreSQL 14+
+- API keys for blockchain providers (Alchemy, Infura, Ankr, etc.)
 
-## Philosophy
+### Installation
 
-<p>In recent years, thanks to Node.js, JavaScript has become the “lingua franca” of the web for both front and backend applications, giving rise to awesome projects like <a href="https://angular.io/" target="_blank">Angular</a>, <a href="https://github.com/facebook/react" target="_blank">React</a>, and <a href="https://github.com/vuejs/vue" target="_blank">Vue</a>, which improve developer productivity and enable the construction of fast, testable, and extensible frontend applications. However, on the server-side, while there are a lot of superb libraries, helpers, and tools for Node, none of them effectively solve the main problem - the architecture.</p>
-<p>Nest aims to provide an application architecture out of the box which allows for effortless creation of highly testable, scalable, and loosely coupled and easily maintainable applications. The architecture is heavily inspired by Angular.</p>
+```bash
+# Clone and install
+npm install
 
-## Getting started
+# Configure environment
+cp .env.example .env
+# Edit .env with your API keys and database credentials
 
-- To check out the [guide](https://docs.nestjs.com), visit [docs.nestjs.com](https://docs.nestjs.com). :books:
-- 要查看中文 [指南](readme_zh.md), 请访问 [docs.nestjs.cn](https://docs.nestjs.cn). :books:
-- [가이드](readme_kr.md) 문서는 [docs.nestjs.com](https://docs.nestjs.com)에서 확인하실 수 있습니다. :books:
-- [ガイド](readme_jp.md)は [docs.nestjs.com](https://docs.nestjs.com)でご確認ください。 :books:
+# Create database
+npx ts-node -r tsconfig-paths/register scripts/database/create-database.ts
 
-## Questions
+# Build and start
+npm run build
+npm run start
+```
 
-For questions and support please use the official [Discord channel](https://discord.gg/G7Qnnhy). The issue list of this repo is **exclusively** for bug reports and feature requests.
+### Data Population
 
-## Issues
+```bash
+# Discover users with at-risk positions
+npx ts-node -r tsconfig-paths/register scripts/discovery/aave-v3-user-discovery.ts --network ethereum --from-date 2025-01-01
 
-Please make sure to read the [Issue Reporting Checklist](https://github.com/nestjs/nest/blob/master/CONTRIBUTING.md#-submitting-an-issue) before opening an issue. Issues not conforming to the guidelines may be closed immediately.
+# Process positions and calculate risk
+npx ts-node -r tsconfig-paths/register scripts/aave/aave-v3-position-processor.ts --network ethereum --max-users 100 --batch-size 20
+```
 
-## Consulting
+### Dashboard
 
-With official support, you can get expert help straight from Nest core team. We provide dedicated technical support, migration strategies, advice on best practices (and design decisions), PR reviews, and team augmentation. Read more about [support here](https://enterprise.nestjs.com).
+```bash
+cd oev-feed-dashboard
+npm install
+npm run dev
+```
 
-## Support
+## Architecture
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support from the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+- **Hexagonal Architecture**: Clean separation of domain, application, and infrastructure layers
+- **NestJS Framework**: Modern TypeScript backend with dependency injection
+- **Multi-Provider**: Support for Alchemy, Infura, Ankr, QuickNode, and more
+- **Multi-Network**: Ethereum, Polygon, Arbitrum, Optimism, Blast
 
-## Stay in touch
+## Documentation
 
-- Author - [Kamil Myśliwiec](https://x.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- X - [@nestframework](https://x.com/nestframework)
+- **[src/README.md](src/README.md)**: How to run locally
+- **[scripts/README.md](scripts/README.md)**: Data population scripts
+- **[docs/](docs/)**: Architecture and configuration guides
+- **[implementation-spec.md](implementation-spec.md)**: Detailed implementation specification
+
+## API Endpoints
+
+- `GET /api/v1/positions` - Get all positions
+- `GET /api/v1/risk-assessment/user/:address` - Get user risk assessment
+- `GET /api/v1/risk-assessment/positions/at-risk` - Get at-risk positions
+- `GET /api/v1/providers` - Get provider status
+- `GET /metrics` - Prometheus metrics
+
+## Tech Stack
+
+- **Backend**: NestJS, TypeORM, PostgreSQL
+- **Frontend**: Next.js 16, React 19, TailwindCSS, Recharts
+- **Blockchain**: Ethers.js, Aave Protocol
+- **Monitoring**: Prometheus metrics, structured logging
 
 ## License
 
-Nest is [MIT licensed](LICENSE).
+MIT

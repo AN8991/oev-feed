@@ -12,10 +12,12 @@ This document outlines the implementation details of the OEV Feed project, built
 - **TypeOrmConfigService**: Injectable service implementing TypeOrmOptionsFactory
   - Proper connection pooling, SSL support, environment-specific configurations
   - Complete entity registration with all 9 TypeORM entities
-- **NetworkConfigService**: Comprehensive multi-provider support
+- **NetworkConfigService**: Comprehensive multi-provider support (consolidated from ProviderConfigService)
   - 5 networks: Ethereum, Polygon, Arbitrum, Optimism, Blast
   - 10 providers: Alchemy, Infura, BlockDaemon, QuickNode, etc.
   - Type-safe provider URL templates with API key management
+  - **Recent Consolidation**: Now includes rate limits, timeouts, retries, and provider priority
+  - Compatibility methods for seamless migration from ProviderConfigService
 - **SubgraphService**: Multi-network subgraph endpoint management
   - Aave V2/V3 support across all networks
   - Configuration validation and health checking
@@ -144,7 +146,14 @@ This document outlines the implementation details of the OEV Feed project, built
 - **Clean Architecture**: Proper hexagonal architecture throughout
 - **Address Normalization**: Fixed checksum validation errors
 
-### **3.4 Production Reliability Enhancements (2025-09-27)**
+### **3.4 Provider Configuration Consolidation (2025-11-27)**
+- **Removed ProviderConfigService**: Consolidated into NetworkConfigService
+- **Enhanced NetworkConfigService**: Added rate limits, timeouts, retries, provider priority
+- **Updated ProviderFactory**: Now uses NetworkConfigService exclusively
+- **Cleaner Architecture**: Single source of truth for all provider configuration
+- **User Discovery Enhancement**: Added `--max-health-factor` parameter for faster demo/testing
+
+### **3.5 Production Reliability Enhancements (2025-09-27)**
 - **Rate Limiting Implementation**: Added comprehensive rate limiting to AAVE V3 adapter
   - 100ms delays between RPC calls, 50ms between assets, 200ms between users
   - **Result**: 3-4x performance improvement, eliminated rate limit errors
@@ -232,4 +241,4 @@ The project serves as an **excellent example** of well-architected NestJS applic
 
 ---
 
-*Implementation Specification - Updated: 2025-09-27*
+*Implementation Specification - Updated: 2025-11-27*

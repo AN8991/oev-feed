@@ -18,7 +18,6 @@ import { ProtocolAdapterFactory } from '@adapters/secondary/protocols/protocol-a
 import { ProviderFactory } from '@adapters/secondary/providers/provider-factory';
 import { NetworkConfigService } from '@infrastructure/config/network.config';
 import { NetworkModule } from '@infrastructure/config/network.module';
-import { ProviderConfigModule } from '@infrastructure/config/provider-config.module';
 import { RequestDistributor } from '@infrastructure/utils/request-distributor';
 import { PositionEntity } from '@adapters/secondary/database/typeorm/entities/position.entity';
 import { UserEntity } from '@adapters/secondary/database/typeorm/entities/user.entity';
@@ -49,8 +48,7 @@ const WETH_ADDRESS = '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2'; // WETH on ma
       logging: false,
       entities: [PositionEntity, UserEntity],
     }),
-    NetworkModule,
-    ProviderConfigModule
+    NetworkModule
   ],
   providers: [
     ProtocolAdapterFactory,

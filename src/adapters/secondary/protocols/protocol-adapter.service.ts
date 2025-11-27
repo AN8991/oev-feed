@@ -1,6 +1,5 @@
 import { Injectable, OnModuleInit, OnModuleDestroy, Logger } from '@nestjs/common';
 import { ConfigService } from '@infrastructure/config/config';
-import { ProviderConfigService } from '@infrastructure/config/provider-config';
 import { ProtocolAdapterFactory } from './protocol-adapter-factory';
 import { ProtocolAdapterPort } from '@domain/ports/secondary/protocol-adapter.port';
 
@@ -18,7 +17,6 @@ export class ProtocolAdapterService implements OnModuleInit, OnModuleDestroy {
 
   constructor(
     private readonly configService: ConfigService,
-    private readonly providerConfigService: ProviderConfigService,
     private readonly protocolAdapterFactory: ProtocolAdapterFactory
   ) {}
 
@@ -86,19 +84,6 @@ export class ProtocolAdapterService implements OnModuleInit, OnModuleDestroy {
         version: protocol.includes('v2') ? 'v2' : 'v3'
       }
     };
-
-    // Add provider configuration if network is supported
-    try {
-      if (this.providerConfigService.isNetworkSupported(network)) {
-        const networkConfig = this.providerConfigService.getNetwork(network);
-        baseConfig.network = {
-          ...baseConfig.network,
-          ...networkConfig
-        };
-      }
-    } catch (error) {
-      this.logger.warn(`Failed to get network config for ${network}:`, error);
-    }
 
     // Add protocol-specific contract addresses
     if (protocol === 'aave-v2' && network === 'ethereum') {

@@ -1,12 +1,14 @@
 // Provider factory for creating and managing blockchain providers
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { ProviderAdapterPort } from '@domain/ports/secondary/provider-adapter.port';
 import { AlchemyProviderAdapter, AlchemyProviderConfig } from './alchemy-provider.adapter';
 import { InfuraProviderAdapter, InfuraProviderConfig } from './infura-provider.adapter';
 import { EnhancedProviderAdapter } from './enhanced-provider.adapter';
-import { ProviderConfigService } from '@infrastructure/config/provider-config';
+import { NetworkConfigService } from '@infrastructure/config/network.config';
 import { RequestDistributor, SelectionStrategy } from '@infrastructure/utils/request-distributor';
 import { Providers } from '@/domain/enums/providers.enum';
+import { Network } from '@/domain/types/networks';
 
 /**
  * Provider options interface
@@ -55,11 +57,12 @@ export class ProviderFactory {
    * Constructor with dependency injection
    */
   constructor(
-    private readonly configService: ProviderConfigService,
-    private readonly requestDistributor: RequestDistributor
+    private readonly networkConfigService: NetworkConfigService,
+    private readonly requestDistributor: RequestDistributor,
+    private readonly configService: ConfigService
   ) {
     // Set provider priority from configuration
-    this.providerPriority = this.configService.getProviderPriority();
+    this.providerPriority = this.networkConfigService.getProvidersByPriority();
     
     this.logger.log('Provider factory initialized');
     this.logger.debug('Provider priority set', { priority: this.providerPriority });
@@ -81,7 +84,7 @@ export class ProviderFactory {
     const normalizedNetwork = network.toLowerCase();
     
     // Check if network is supported
-    if (!this.configService.isNetworkSupported(normalizedNetwork)) {
+    if (!this.networkConfigService.isNetworkSupported(normalizedNetwork)) {
       throw new Error(`Unsupported network: ${network}`);
     }
     
@@ -137,7 +140,7 @@ export class ProviderFactory {
     const normalizedNetwork = network.toLowerCase();
     
     // Check if network is supported
-    if (!this.configService.isNetworkSupported(normalizedNetwork)) {
+    if (!this.networkConfigService.isNetworkSupported(normalizedNetwork)) {
       throw new Error(`Unsupported network: ${network}`);
     }
     
@@ -281,12 +284,12 @@ export class ProviderFactory {
     const normalizedNetwork = network.toLowerCase();
     
     // Check if network is supported
-    if (!this.configService.isNetworkSupported(normalizedNetwork)) {
+    if (!this.networkConfigService.isNetworkSupported(normalizedNetwork)) {
       throw new Error(`Unsupported network: ${network}`);
     }
     
     // Get network configuration
-    const networkConfig = this.configService.getNetwork(normalizedNetwork);
+    const networkConfig = this.networkConfigService.getNetwork(normalizedNetwork);
     
     if (!networkConfig) {
       throw new Error(`Network configuration not found for ${normalizedNetwork}`);
@@ -419,11 +422,27 @@ export class ProviderFactory {
     network: string,
     config: Record<string, any> = {}
   ): ProviderAdapterPort {
-    // Merge default config with provided config
+    // Get provider config from NetworkConfigService
+    const providerConfig = this.networkConfigService.getProviderConfig(network as Network, type);
+    
+    if (!providerConfig) {
+      throw new Error(`Provider ${type} is not configured for network ${network}`);
+    }
+    
+    // Get API key from environment
+    const apiKey = this.configService.get<string>(providerConfig.apiKeyEnvVar);
+    
+    if (!apiKey && type !== Providers.LOCAL) {
+      throw new Error(`API key not found for ${type}. Please set ${providerConfig.apiKeyEnvVar} environment variable.`);
+    }
+    
+    // Build the merged config with resolved API key
     const mergedConfig = {
-      ...this.configService.getProviderConfig(network, type), // Fix argument order for getProviderConfig: should be (networkName, providerType)
-      ...config,
-      network // Ensure network is included in the config
+      apiKey: apiKey || '',
+      network,
+      timeout: providerConfig.timeout || 30000,
+      maxRetries: providerConfig.maxRetries || 3,
+      ...config
     };
     
     let baseProvider: ProviderAdapterPort;
@@ -459,7 +478,7 @@ export class ProviderFactory {
     config: Record<string, any> = {}
   ): Promise<ProviderAdapterPort> {
     // Get network configuration
-    const networkConfig = this.configService.getNetwork(network);
+    const networkConfig = this.networkConfigService.getNetwork(network);
     
     if (!networkConfig) {
       throw new Error(`Network configuration not found for ${network}`);
@@ -561,7 +580,7 @@ export class ProviderFactory {
    */
   private getDefaultProviderType(network: string): Providers {
     // Get network configuration
-    const networkConfig = this.configService.getNetwork(network);
+    const networkConfig = this.networkConfigService.getNetwork(network);
     
     if (!networkConfig) {
       throw new Error(`Network configuration not found for ${network}`);
@@ -573,7 +592,7 @@ export class ProviderFactory {
     }
     
     // Use global default provider type
-    const globalConfig = this.configService.getGlobalConfig();
+    const globalConfig = this.networkConfigService.getGlobalConfig();
     return globalConfig.defaultProviderType;
   }
   
@@ -582,7 +601,7 @@ export class ProviderFactory {
    * @returns Array of network names
    */
   public getAvailableNetworks(): string[] {
-    return this.configService.getNetworkNames();
+    return this.networkConfigService.getNetworkNames();
   }
   
   /**

@@ -25,7 +25,6 @@ import { ProtocolAdapterService } from '../../src/adapters/secondary/protocols/p
 import { ProviderFactory } from '../../src/adapters/secondary/providers/provider-factory';
 import { NetworkConfigService } from '../../src/infrastructure/config/network.config';
 import { NetworkModule } from '../../src/infrastructure/config/network.module';
-import { ProviderConfigModule } from '../../src/infrastructure/config/provider-config.module';
 import { RequestDistributor } from '../../src/infrastructure/utils/request-distributor';
 import { PositionEntity } from '../../src/adapters/secondary/database/typeorm/entities/position.entity';
 import { UserEntity } from '../../src/adapters/secondary/database/typeorm/entities/user.entity';
@@ -33,7 +32,6 @@ import { RiskAssessmentService } from '../../src/application/services/risk-asses
 import { PositionsService } from '../../src/application/services/positions.service';
 import { AavePositionMapper } from '../../src/application/mappers/aave-position.mapper';
 import { ConfigService as InfraConfigService } from '../../src/infrastructure/config/config';
-import { ProviderConfigService } from '../../src/infrastructure/config/provider-config';
 import { Network } from '../../src/domain/types/networks';
 import { Providers } from '../../src/domain/enums/providers.enum';
 import { Protocol } from '../../src/domain/enums/protocols.enum';
@@ -63,8 +61,7 @@ const logger = new Logger('AaveV3PositionProcessor');
       entities: [PositionEntity, UserEntity],
     }),
     TypeOrmModule.forFeature([PositionEntity, UserEntity]),
-    NetworkModule,
-    ProviderConfigModule
+    NetworkModule
   ],
   providers: [
     ProtocolAdapterFactory,
@@ -74,8 +71,7 @@ const logger = new Logger('AaveV3PositionProcessor');
     RiskAssessmentService,
     PositionsService,
     AavePositionMapper,
-    InfraConfigService,
-    ProviderConfigService
+    InfraConfigService
   ]
 })
 class PositionProcessorModule {}

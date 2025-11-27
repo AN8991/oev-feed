@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ProtocolAdapterService } from './protocol-adapter.service';
 import { ProtocolAdapterFactory } from './protocol-adapter-factory';
-import { ProviderConfigModule } from '@infrastructure/config/provider-config.module';
+import { NetworkModule } from '@infrastructure/config/network.module';
 
 /**
  * Protocol Adapter Module
@@ -10,7 +10,7 @@ import { ProviderConfigModule } from '@infrastructure/config/provider-config.mod
  * Note: AavePositionMapper dependency will be resolved from AppModule.
  */
 @Module({
-  imports: [ConfigModule, ProviderConfigModule],
+  imports: [ConfigModule, NetworkModule],
   providers: [ProtocolAdapterService, ProtocolAdapterFactory],
   exports: [ProtocolAdapterService, ProtocolAdapterFactory],
 })

@@ -1,36 +1,71 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# OEV Feed Dashboard
+
+A React-based dashboard for monitoring DeFi positions and risk assessment.
+
+## Overview
+
+The dashboard provides three main views:
+- **Portfolio Overview**: Total collateral, debt, health factor, and distribution charts
+- **Risk Assessment**: Composite risk score, health factor history, LTV analysis, liquidation distance
+- **Provider Infrastructure**: Provider health status, response times, uptime metrics
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
+- Node.js 18+
+- OEV Feed backend running on port 3000
+
+### Installation
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3001](http://localhost:3001) with your browser.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+**Note**: The dashboard runs on port 3001 by default to avoid conflict with the backend on port 3000.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Tech Stack
 
-## Learn More
+- **Framework**: Next.js 16 (App Router)
+- **UI Library**: React 19
+- **Styling**: TailwindCSS 4
+- **Components**: shadcn/ui
+- **Charts**: Recharts 3.4
+- **Data Fetching**: TanStack Query (React Query) 5.90
+- **HTTP Client**: Axios 1.13
 
-To learn more about Next.js, take a look at the following resources:
+## Project Structure
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```
+oev-feed-dashboard/
+├── app/
+│   ├── layout.tsx           # Root layout with React Query
+│   ├── page.tsx             # Main dashboard page
+│   └── infrastructure/      # Provider infrastructure page
+├── components/
+│   ├── portfolio-overview.tsx
+│   ├── risk-assessment.tsx
+│   └── provider-infrastructure.tsx
+├── hooks/
+│   ├── use-portfolio.ts
+│   ├── use-risk.ts
+│   └── use-provider-health.ts
+└── lib/
+    ├── api-client.ts        # Axios client & API functions
+    └── query-client.tsx     # React Query setup
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## API Integration
 
-## Deploy on Vercel
+The dashboard connects to the OEV Feed backend APIs:
+- `GET /api/v1/portfolio/summary?walletAddress={address}`
+- `GET /api/v1/risk/assessment?walletAddress={address}`
+- `GET /api/v1/provider-health`
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Documentation
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- **[IMPLEMENTATION_COMPLETE.md](IMPLEMENTATION_COMPLETE.md)**: Full implementation details
+- **[DASHBOARD_GUIDE.md](DASHBOARD_GUIDE.md)**: Quick start guide
+- **[RISK_METRICS_EXPLAINED.md](RISK_METRICS_EXPLAINED.md)**: Risk calculation explanations

@@ -36,6 +36,7 @@ async function bootstrap() {
     let fromDate: Date | null = null;
     let toDate: Date | null = null;
     let maxDays: number | null = null;
+    let maxHealthFactor: number = 5; // Default to 5
 
     for (let i = 0; i < args.length; i++) {
       const arg = args[i];
@@ -50,6 +51,9 @@ async function bootstrap() {
         i++;
       } else if (arg === '--max-days' && i + 1 < args.length) {
         maxDays = parseInt(args[i + 1]);
+        i++;
+      } else if (arg === '--max-health-factor' && i + 1 < args.length) {
+        maxHealthFactor = parseFloat(args[i + 1]);
         i++;
       }
     }
@@ -73,6 +77,7 @@ async function bootstrap() {
       console.error('   --from-date <YYYY-MM-DD> (optional, default: 2025-01-01)');
       console.error('   --to-date <YYYY-MM-DD> (optional, default: today)');
       console.error('   --max-days <days> (optional, calculated from date range)');
+      console.error('   --max-health-factor <number> (optional, default: 5, lower = riskier positions)');
       console.error('');
       console.error('Examples:');
       console.error('  # Default: Jan 1, 2025 to today');
@@ -86,7 +91,7 @@ async function bootstrap() {
     console.log(`📍 Network: ${network}`);
     console.log(`📅 From: ${fromDate.toISOString().split('T')[0]}`);
     console.log(`📅 To: ${toDate.toISOString().split('T')[0]} (${maxDays} day${maxDays > 1 ? 's' : ''})`);
-    console.log(`🎯 Health Factor Filter: <= 5`);
+    console.log(`🎯 Max Health Factor: ${maxHealthFactor}`);
     console.log(`⏳ Processing...`);
 
     // Initialize NestJS application
@@ -99,7 +104,8 @@ async function bootstrap() {
       Protocol.AAVE_V3,
       network as Network,
       fromDate,
-      toDate
+      toDate,
+      maxHealthFactor
     );
 
     console.log(`✅ Discovery completed successfully!`);

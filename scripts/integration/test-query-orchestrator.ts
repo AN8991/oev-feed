@@ -14,7 +14,6 @@ import { TimeModule } from '@infrastructure/services/time.module';
 import { ProtocolAdapterFactory } from '@adapters/secondary/protocols/protocol-adapter-factory';
 import { ProviderFactory } from '@adapters/secondary/providers/provider-factory';
 import { NetworkModule } from '@infrastructure/config/network.module';
-import { ProviderConfigModule } from '@infrastructure/config/provider-config.module';
 import { RequestDistributor } from '@infrastructure/utils/request-distributor';
 import { AavePositionMapper } from '@application/mappers/aave-position.mapper';
 import { normalizeAddress } from '@domain/utils/address-utils';
@@ -30,7 +29,6 @@ const TEST_USER_ADDRESS = '0x79682489385337996edd00eb56b4238b597bfae7';
       envFilePath: '.env'
     }),
     NetworkModule,
-    ProviderConfigModule,
     TimeModule
   ],
   providers: [

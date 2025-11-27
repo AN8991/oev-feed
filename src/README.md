@@ -5,7 +5,7 @@
 3. OPTIONAL (If you have a db and want a fresh start): `npx ts-node -r tsconfig-paths/register scripts/database/reset-database.ts`
 4. Run `npm install` to install dependencies
 5. Run `npm run build` to build the application
-6. Run `npm run start:dev` to start the application in development mode
+6. Run `npm run start` in Projects/oev-feed to start the application
 7. The application will start on http://localhost:3000 (or the port specified in your .env).
 
 # API Access:

@@ -14,7 +14,6 @@ import { Module } from '@nestjs/common';
 import { ProviderFactory, Providers } from '@adapters/secondary/providers/provider-factory';
 import { NetworkConfigService } from '@infrastructure/config/network.config';
 import { NetworkModule } from '@infrastructure/config/network.module';
-import { ProviderConfigModule } from '@infrastructure/config/provider-config.module';
 import { RequestDistributor } from '@infrastructure/utils/request-distributor';
 import { Network } from '@domain/types/networks';
 
@@ -26,8 +25,7 @@ const logger = new Logger('TestProviderAdapters');
       isGlobal: true,
       envFilePath: '.env'
     }),
-    NetworkModule,
-    ProviderConfigModule
+    NetworkModule
   ],
   providers: [
     ProviderFactory,

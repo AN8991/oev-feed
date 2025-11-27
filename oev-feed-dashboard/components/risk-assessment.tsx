@@ -284,15 +284,15 @@ export function RiskAssessment({ walletAddress }: RiskAssessmentProps) {
               </div>
             </div>
             {concentrationData.length > 0 && (
-              <ResponsiveContainer width="100%" height={150}>
-                <PieChart>
+              <ResponsiveContainer width="100%" height={250}>
+                <PieChart margin={{ top: 20, right: 20, bottom: 20, left: 50 }}>
                   <Pie
                     data={concentrationData}
-                    cx="50%"
+                    cx="55%"
                     cy="50%"
                     labelLine={false}
                     label={({ name, value }) => `${name}: ${value.toFixed(1)}%`}
-                    outerRadius={50}
+                    outerRadius={60}
                     fill="#8884d8"
                     dataKey="value"
                   >

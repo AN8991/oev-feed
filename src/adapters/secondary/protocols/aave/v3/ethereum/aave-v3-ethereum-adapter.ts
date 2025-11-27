@@ -624,7 +624,8 @@ export class AaveV3EthereumAdapter implements ProtocolAdapterPort {
   public async discoverActiveUsers(
     network: string,
     fromTimestamp: Date,
-    toTimestamp: Date
+    toTimestamp: Date,
+    maxHealthFactor: number = 5
   ): Promise<Array<{
     address: string;
     protocol: string;
@@ -663,8 +664,11 @@ export class AaveV3EthereumAdapter implements ProtocolAdapterPort {
       
       this.logger.debug(`Querying blocks from ${fromBlock} to ${toBlock} (${blocksFromStart} blocks, ~${Math.floor(blocksFromStart * 12 / 3600)} hours of data)`);
       
-      // Query events in chunks to avoid RPC limits (max 10,000 results per query)
-      const CHUNK_SIZE = 5000; // Query 5000 blocks at a time
+      // Query events in chunks to avoid RPC limits
+      // Ankr free tier: max 2000 blocks per eth_getLogs request (500M req/month)
+      // Alchemy free tier: max 10 blocks per eth_getLogs request
+      // Infura: requires payment (exhausted free tier)
+      const CHUNK_SIZE = 2000; // Query 2000 blocks at a time (Ankr limit)
       const allDepositEvents: any[] = [];
       const allBorrowEvents: any[] = [];
       
@@ -689,6 +693,11 @@ export class AaveV3EthereumAdapter implements ProtocolAdapterPort {
             throw error;
           }
         }
+        
+        // Add delay to respect RPC rate limits
+        // Public RPCs (Ankr): ~30-60 req/min, 1000ms delay = 60 req/min
+        // Infura: 100 req/min, 700ms delay = ~85 req/min
+        await new Promise(resolve => setTimeout(resolve, 1000));
       }
       
       this.logger.debug(`Total events collected: ${allDepositEvents.length} supplies, ${allBorrowEvents.length} borrows`);
@@ -805,8 +814,8 @@ export class AaveV3EthereumAdapter implements ProtocolAdapterPort {
               const collateralValue = parseFloat(formatToEther(totalCollateralBase));
               const debtValue = parseFloat(formatToEther(totalDebtBase));
               
-              // Filter: health factor <= 5 AND has active positions (collateral > 0 OR debt > 0)
-              if (hfValue <= 5 && hfValue > 0 && (collateralValue > 0 || debtValue > 0)) {
+              // Filter: health factor <= maxHealthFactor AND has active positions (collateral > 0 OR debt > 0)
+              if (hfValue <= maxHealthFactor && hfValue > 0 && (collateralValue > 0 || debtValue > 0)) {
                 discoveredUsers.push({
                   address: normalizeAddress(result.userAddress),
                   protocol: this.PROTOCOL,

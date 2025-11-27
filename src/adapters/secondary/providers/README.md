@@ -4,13 +4,13 @@ This directory contains the implementation of blockchain provider adapters for t
 
 ## Architecture
 
-The provider adapters follow the adapter pattern and are structured as follows:
+The provider adapters follow the adapter pattern with **proper NestJS dependency injection**:
 
 - `provider-adapter.port.ts`: Defines the contract for provider adapters
 - `base-provider.adapter.ts`: Base implementation with common functionality
 - `alchemy-provider.adapter.ts`: Alchemy-specific provider implementation
 - `infura-provider.adapter.ts`: Infura-specific provider implementation
-- `provider-factory.ts`: Factory for creating and managing provider instances
+- `provider-factory.ts`: Injectable factory for creating and managing provider instances
 
 ## Features
 
@@ -19,75 +19,94 @@ The provider adapters follow the adapter pattern and are structured as follows:
 - **Provider Health Monitoring**: Track provider health and performance
 - **Rate Limit Tracking**: Monitor API rate limits to avoid service disruptions
 - **Smart Provider Selection**: Select the best provider based on health, performance, and rate limits
+- **10 Provider Support**: Alchemy, Infura, Ankr, QuickNode, BlockDaemon, and much more
 
 ## Usage
 
-### Basic Usage
+### Modern Usage (Dependency Injection)
 
 ```typescript
-import { ProviderFactory } from './adapters/secondary/providers/provider-factory';
+import { Injectable } from '@nestjs/common';
+import { ProviderFactory } from '@adapters/secondary/providers/provider-factory';
+import { NetworkConfigService } from '@infrastructure/config/network.config';
+import { Network } from '@domain/enums/networks.enum';
+import { Providers } from '@domain/enums/providers.enum';
 
-// Get a provider for a specific network
-const provider = await ProviderFactory.getProvider('ethereum');
+@Injectable()
+export class YourService {
+  constructor(
+    private readonly providerFactory: ProviderFactory,
+    private readonly networkConfig: NetworkConfigService
+  ) {}
 
-// Use the provider
-const blockNumber = await provider.getBlockNumber();
-const balance = await provider.getBalance('0x...');
+  async getBlockData(network: Network) {
+    // Get provider through factory
+    const provider = await this.providerFactory.getProvider(
+      Providers.ALCHEMY,
+      network
+    );
+    
+    // Use the provider
+    const blockNumber = await provider.getBlockNumber();
+    return blockNumber;
+  }
+}
 ```
 
-### Advanced Usage
+### Configuration
+
+Provider configuration is managed by **NetworkConfigService** (consolidated from the legacy ProviderConfigService):
 
 ```typescript
-import { ProviderFactory, Providers } from './adapters/secondary/providers/provider-factory';
+// NetworkConfigService provides:
+// - Rate limits, timeouts, retries per provider
+// - Provider priority for fallback
+// - API key management
+// - Network-specific configurations
 
-// Get a specific provider type
-const alchemyProvider = await ProviderFactory.getProvider('ethereum', {
-  type: Providers.ALCHEMY,
-  fallback: false
-});
-
-// Get the best provider based on health, performance, and rate limits
-const bestProvider = await ProviderFactory.getBestProvider('ethereum');
-
-// Get all available providers
-const allProviders = await ProviderFactory.getAllProviders('ethereum');
-
-// Set provider priority for fallback
-ProviderFactory.setProviderPriority([Providers.ALCHEMY, Providers.INFURA]);
-
-// Create a contract instance
-const contract = provider.getContract(
-  '0x...', // Contract address
-  [...] // Contract ABI
-);
+const config = this.networkConfig.getProviderConfig(Network.ETHEREUM, Providers.ALCHEMY);
+const rateLimit = this.networkConfig.getRateLimit(Network.ETHEREUM, Providers.ALCHEMY);
+const priority = this.networkConfig.getProviderPriority(Network.ETHEREUM, Providers.ALCHEMY);
 ```
 
-## Configuration
+## Environment Variables
 
 Provider adapters require API keys to be set in environment variables:
 
-- Alchemy: `ALCHEMY_API_KEY`
-- Infura: `INFURA_API_KEY` or `INFURA_PROJECT_ID` and `INFURA_PROJECT_SECRET`
+```bash
+# Primary Providers
+ALCHEMY_API_KEY=your-alchemy-key
+INFURA_API_KEY=your-infura-key
+
+# Additional Providers
+ANKR_API_KEY=your-ankr-key
+QUICKNODE_API_KEY=your-quicknode-key
+BLOCKDAEMON_API_KEY=your-blockdaemon-key
+BLOCKCYPHER_API_KEY=your-blockcypher-key
+ETHERSCAN_API_KEY=your-etherscan-key
+POCKET_API_KEY=your-pocket-key
+
+# Development
+CUSTOM_RPC_URL=your-custom-rpc
+LOCAL_RPC_URL=http://localhost:8545
+```
 
 ## Supported Networks
 
-The provider adapters support the following networks:
-
-- Ethereum: `ethereum`, `mainnet`
-- Ethereum Testnets: `goerli`, `sepolia`
-- Polygon: `polygon`, `polygon-mainnet`, `polygon-mumbai`
-- Arbitrum: `arbitrum`, `arbitrum-mainnet`, `arbitrum-goerli`
-- Optimism: `optimism`, `optimism-mainnet`, `optimism-goerli`
+| Network | Chain ID | Providers Supported |
+|---------|----------|---------------------|
+| Ethereum | 1 | All 10 providers |
+| Polygon | 137 | Alchemy, Infura, QuickNode |
+| Arbitrum | 42161 | Alchemy, Infura, Custom |
+| Optimism | 10 | Alchemy, Infura, Custom |
+| Blast | 81457 | Custom provider |
 
 ## Testing
 
-A test script is provided to verify the functionality of the provider adapters:
-
 ```bash
-# Run the test script
-ts-node scripts/test-provider-adapters.ts
+# Run the provider adapters test
+npx ts-node -r tsconfig-paths/register scripts/infrastructure/test-provider-adapters.ts
+
+# Run the provider config test
+npx ts-node -r tsconfig-paths/register scripts/infrastructure/test-provider-config.ts
 ```
-
-## Examples
-
-See `src/examples/provider-adapter-usage.ts` for a complete example of how to use provider adapters in a protocol adapter.

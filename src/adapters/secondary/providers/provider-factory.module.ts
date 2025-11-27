@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ProviderFactory } from './provider-factory';
-import { ProviderConfigModule } from '@infrastructure/config/provider-config.module';
+import { NetworkModule } from '@infrastructure/config/network.module';
 
 /**
  * Provider Factory Module
@@ -9,7 +9,7 @@ import { ProviderConfigModule } from '@infrastructure/config/provider-config.mod
  * Note: RequestDistributor dependency will be resolved from AppModule.
  */
 @Module({
-  imports: [ProviderConfigModule],
+  imports: [NetworkModule],
   providers: [ProviderFactory],
   exports: [ProviderFactory],
 })

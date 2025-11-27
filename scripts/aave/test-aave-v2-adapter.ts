@@ -8,7 +8,6 @@ import { NestFactory } from '@nestjs/core';
 import { Logger } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ConfigService as InfraConfigService } from '@infrastructure/config/config';
-import { ProviderConfigService } from '@infrastructure/config/provider-config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Module } from '@nestjs/common';
 import { DataSource, Repository } from 'typeorm';
@@ -17,7 +16,6 @@ import { ProtocolAdapterService } from '@adapters/secondary/protocols/protocol-a
 import { ProviderFactory } from '@adapters/secondary/providers/provider-factory';
 import { NetworkConfigService } from '@infrastructure/config/network.config';
 import { NetworkModule } from '@infrastructure/config/network.module';
-import { ProviderConfigModule } from '@infrastructure/config/provider-config.module';
 import { RequestDistributor } from '@infrastructure/utils/request-distributor';
 import { PositionEntity } from '@adapters/secondary/database/typeorm/entities/position.entity';
 import { UserEntity } from '@adapters/secondary/database/typeorm/entities/user.entity';
@@ -51,8 +49,7 @@ const TEST_USER_ADDRESS = '0xf0bb20865277abd641a307ece5ee04e79073416c';
       entities: [PositionEntity, UserEntity],
     }),
     TypeOrmModule.forFeature([PositionEntity, UserEntity]),
-    NetworkModule,
-    ProviderConfigModule
+    NetworkModule
   ],
   providers: [
     ProtocolAdapterFactory,
@@ -62,8 +59,7 @@ const TEST_USER_ADDRESS = '0xf0bb20865277abd641a307ece5ee04e79073416c';
     RiskAssessmentService,
     PositionsService,
     AavePositionMapper,
-    InfraConfigService,
-    ProviderConfigService
+    InfraConfigService
   ]
 })
 class TestModule {}

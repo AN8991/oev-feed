@@ -4,9 +4,12 @@ This document provides comprehensive documentation for the provider adapters imp
 
 ## Overview
 
-Provider adapters serve as an abstraction layer between the OEV Feed application and blockchain providers. The system now supports **10 blockchain providers** across **5 networks** with sophisticated health monitoring, load balancing, failover capabilities, and **recently added rate limiting and retry logic**.
+Provider adapters serve as an abstraction layer between the OEV Feed application and blockchain providers. The system now supports **10 blockchain providers** across **5 networks** with sophisticated health monitoring, load balancing, failover capabilities, and **rate limiting and retry logic**.
 
-**Recent Major Enhancement**: Added comprehensive rate limiting, exponential backoff retry logic, and optimized batch processing to AAVE V3 protocol adapter for 3-4x performance improvement and 100% rate limit compliance.
+**Recent Changes**:
+- **Provider Configuration Consolidation**: `ProviderConfigService` removed and consolidated into `NetworkConfigService`
+- **Enhanced NetworkConfigService**: Now includes rate limits, timeouts, retries, and provider priority
+- **User Discovery Enhancement**: Added `--max-health-factor` parameter for faster demo/testing
 
 ## Architecture
 
@@ -82,7 +85,7 @@ export class ProviderFactory {
 
 ## Network Configuration
 
-**NetworkConfigService** provides comprehensive multi-provider support:
+**NetworkConfigService** provides comprehensive multi-provider support (consolidated from ProviderConfigService):
 
 ```typescript
 // src/infrastructure/config/network.config.ts
@@ -91,6 +94,13 @@ export class NetworkConfigService {
   // 5 networks: Ethereum, Polygon, Arbitrum, Optimism, Blast
   // 10 providers with type-safe URL templates
   // API key management and validation
+  // Rate limits, timeouts, retries, and provider priority
+  
+  getProviderConfig(network: Network, provider: Providers): ProviderUrlConfig;
+  getRateLimit(network: Network, provider: Providers): { limit: number; window: number };
+  getTimeout(network: Network, provider: Providers): number;
+  getMaxRetries(network: Network, provider: Providers): number;
+  getProviderPriority(network: Network, provider: Providers): number;
 }
 ```
 

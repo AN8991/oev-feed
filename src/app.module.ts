@@ -7,7 +7,6 @@ import { ConfigModule } from './infrastructure/config/config.module';
 import { ConfigService as AppConfigService } from './infrastructure/config/config';
 import { TypeOrmConfigService } from './infrastructure/config/typeorm-config.service';
 import { HttpConfigModule } from './infrastructure/config/http-config.module';
-import { ProviderConfigModule } from './infrastructure/config/provider-config.module';
 import { NetworkModule } from './infrastructure/config/network.module';
 import { TypeOrmConfigModule } from './infrastructure/config/typeorm-config.module';
 import { SubgraphModule } from './infrastructure/config/subgraph.module';
@@ -94,7 +93,6 @@ class AppController {
   imports: [
     ConfigModule,
     HttpConfigModule,
-    ProviderConfigModule,
     NetworkModule,
     TypeOrmConfigModule,
     SubgraphModule,

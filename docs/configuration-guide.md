@@ -13,8 +13,8 @@ The OEV Feed application uses **modern DI-based configuration services** with co
 **Modern Injectable Services**:
 
 1. **TypeOrmConfigService** - Database configuration with connection pooling
-2. **NetworkConfigService** - Multi-provider network configuration (10 providers, 5 networks)
-3. **SubgraphService** - Multi-network subgraph endpoint management
+2. **NetworkConfigService** - Multi-provider network configuration. Also includes rate limits, timeouts, retries, and provider priority
+3. **SubgraphService** - Multi-network subgraph endpoint management (Work in progress item)
 4. **DatabaseLifecycleService** - Database lifecycle with health checks
 
 ## Environment Variables
@@ -96,7 +96,7 @@ export class TypeOrmConfigService implements TypeOrmOptionsFactory {
 
 ### NetworkConfigService
 
-**Multi-provider network configuration**:
+**Multi-provider network configuration** (consolidated from ProviderConfigService):
 
 ```typescript
 @Injectable()
@@ -104,10 +104,15 @@ export class NetworkConfigService {
   // 5 networks: Ethereum, Polygon, Arbitrum, Optimism, Blast
   // 10 providers with type-safe URL templates
   // API key management and validation
+  // Rate limits, timeouts, retries, and provider priority
   
-  getNetworkConfig(network: Network, provider: Providers): NetworkConfig {
-    // Type-safe provider URL templates with API key management
-  }
+  getNetworkConfig(network: Network, provider: Providers): NetworkConfig;
+  getProviderConfig(network: Network, provider: Providers): ProviderUrlConfig;
+  getRateLimit(network: Network, provider: Providers): { limit: number; window: number };
+  getTimeout(network: Network, provider: Providers): number;
+  getMaxRetries(network: Network, provider: Providers): number;
+  getProviderPriority(network: Network, provider: Providers): number;
+  getProvidersByPriority(network: Network): Providers[];
 }
 ```
 
@@ -160,4 +165,4 @@ export class YourService {
 // Environment-specific validation rules
 ```
 
-*Configuration Guide - Updated: 2025-09-27*
+*Configuration Guide - Updated: 2025-11-27*

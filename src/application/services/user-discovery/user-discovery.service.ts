@@ -27,7 +27,8 @@ export class UserDiscoveryService implements IUserDiscoveryService {
     protocol: Protocol,
     network: Network,
     fromTimestamp: Date,
-    toTimestamp: Date
+    toTimestamp: Date,
+    maxHealthFactor: number = 5
   ): Promise<{ discovered: number; saved: number; updated: number }> {
     this.logger.log(`Starting user discovery for ${protocol} on ${network} from ${fromTimestamp} to ${toTimestamp}`);
 
@@ -43,7 +44,8 @@ export class UserDiscoveryService implements IUserDiscoveryService {
       const discoveredUsers = await (adapter as any).discoverActiveUsers(
         network.toLowerCase(),
         fromTimestamp,
-        toTimestamp
+        toTimestamp,
+        maxHealthFactor
       );
 
       // Process and save users

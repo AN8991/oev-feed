@@ -23,10 +23,17 @@ export interface NetworkConfig extends NetworkInfo {
 /**
  * Provider URL templates for different networks
  */
-interface ProviderUrlConfig {
+export interface ProviderUrlConfig {
   httpTemplate: string;
   wsTemplate: string;
   apiKeyEnvVar: string;
+  rateLimit?: {
+    limit: number;      // Requests per window
+    window: number;     // Time window in milliseconds
+  };
+  timeout?: number;     // Request timeout in milliseconds
+  maxRetries?: number;  // Maximum retry attempts
+  priority?: number;    // Provider priority (lower = higher priority)
 }
 
 @Injectable()
@@ -41,7 +48,11 @@ export class NetworkConfigService {
       [Network.ETHEREUM]: {
         httpTemplate: 'https://eth-mainnet.g.alchemy.com/v2/{apiKey}',
         wsTemplate: 'wss://eth-mainnet.g.alchemy.com/v2/{apiKey}',
-        apiKeyEnvVar: 'ALCHEMY_API_KEY'
+        apiKeyEnvVar: 'ALCHEMY_API_KEY',
+        rateLimit: { limit: 330, window: 60000 }, // 330 requests per minute
+        timeout: 30000,
+        maxRetries: 3,
+        priority: 1
       },
       [Network.POLYGON]: {
         httpTemplate: 'https://polygon-mainnet.g.alchemy.com/v2/{apiKey}',
@@ -68,7 +79,11 @@ export class NetworkConfigService {
       [Network.ETHEREUM]: {
         httpTemplate: 'https://mainnet.infura.io/v3/{apiKey}',
         wsTemplate: 'wss://mainnet.infura.io/ws/v3/{apiKey}',
-        apiKeyEnvVar: 'INFURA_API_KEY'
+        apiKeyEnvVar: 'INFURA_API_KEY',
+        rateLimit: { limit: 100, window: 60000 }, // 100 requests per minute
+        timeout: 30000,
+        maxRetries: 3,
+        priority: 2
       },
       [Network.POLYGON]: {
         httpTemplate: 'https://polygon-mainnet.infura.io/v3/{apiKey}',
@@ -374,5 +389,107 @@ export class NetworkConfigService {
   getFallbackRpcUrl(network: Network): string | undefined {
     const envKey = `${network.toUpperCase()}_RPC_URL`;
     return this.configService.get<string>(envKey);
+  }
+
+  /**
+   * Get provider configuration details (rate limits, timeouts, retries)
+   */
+  getProviderConfig(network: Network, provider: Providers): ProviderUrlConfig | undefined {
+    return this.providerConfigs[provider]?.[network];
+  }
+
+  /**
+   * Get rate limit configuration for a provider
+   */
+  getRateLimit(network: Network, provider: Providers): { limit: number; window: number } | undefined {
+    return this.providerConfigs[provider]?.[network]?.rateLimit;
+  }
+
+  /**
+   * Get timeout configuration for a provider
+   */
+  getTimeout(network: Network, provider: Providers): number {
+    return this.providerConfigs[provider]?.[network]?.timeout || 30000; // Default 30s
+  }
+
+  /**
+   * Get max retries configuration for a provider
+   */
+  getMaxRetries(network: Network, provider: Providers): number {
+    return this.providerConfigs[provider]?.[network]?.maxRetries || 3; // Default 3 retries
+  }
+
+  /**
+   * Get provider priority (lower number = higher priority)
+   */
+  getProviderPriority(provider: Providers): number {
+    // Get priority from any network config (they should be consistent)
+    const networkConfigs = this.providerConfigs[provider];
+    if (networkConfigs) {
+      const firstNetwork = Object.values(networkConfigs)[0];
+      return firstNetwork?.priority || 99; // Default low priority
+    }
+    return 99;
+  }
+
+  /**
+   * Get providers sorted by priority
+   */
+  getProvidersByPriority(): Providers[] {
+    const providers = Object.keys(this.providerConfigs) as Providers[];
+    return providers.sort((a, b) => {
+      const priorityA = this.getProviderPriority(a);
+      const priorityB = this.getProviderPriority(b);
+      return priorityA - priorityB;
+    });
+  }
+
+  /**
+   * Check if network is supported
+   */
+  isNetworkSupported(network: string): boolean {
+    return Object.values(Network).includes(network as Network);
+  }
+
+  /**
+   * Get network configuration with providers (compatibility method for ProviderFactory)
+   */
+  getNetwork(network: string): any {
+    const networkEnum = network as Network;
+    if (!this.isNetworkSupported(network)) {
+      return null;
+    }
+
+    // Get all providers for this network
+    const providers: Record<string, any> = {};
+    Object.keys(this.providerConfigs).forEach(provider => {
+      const providerEnum = provider as Providers;
+      const config = this.providerConfigs[providerEnum][networkEnum];
+      if (config) {
+        providers[provider] = config;
+      }
+    });
+
+    return {
+      name: network,
+      providers,
+      defaultProvider: Providers.ALCHEMY // Default to Alchemy
+    };
+  }
+
+  /**
+   * Get global configuration (compatibility method for ProviderFactory)
+   */
+  getGlobalConfig(): { defaultProviderType: Providers } {
+    return {
+      defaultProviderType: Providers.ALCHEMY
+    };
+  }
+
+  /**
+   * Get all network names (compatibility method for ProviderFactory)
+   */
+  getNetworkNames(): string[] {
+    return Object.values(Network);
   }
 }
