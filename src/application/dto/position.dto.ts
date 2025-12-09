@@ -2,6 +2,7 @@ import { IsString, IsNotEmpty, IsOptional, IsNumberString } from 'class-validato
 
 export class PositionDto {
   @IsString()
+  @IsNotEmpty({ message: 'Position ID is required' })
   id: string = '';
 
   @IsString()
@@ -25,6 +26,7 @@ export class PositionDto {
   assetSymbol: string = '';
 
   @IsNumberString()
+  @IsNotEmpty({ message: 'Collateral amount is required' })
   collateralAmount: string = '0';
 
   @IsNumberString()
@@ -37,16 +39,23 @@ export class PositionDto {
   debtAmountUSD: string = '0';
 
   @IsNumberString()
+  @IsNotEmpty({ message: 'Health factor is required' })
   healthFactor: string = '0';
 
   @IsString()
+  @IsNotEmpty({ message: 'Liquidation threshold is required' })
   liquidationThreshold: string = '0';
 
   @IsString()
+  @IsNotEmpty({ message: 'LTV is required' })
   ltv: string = '0';
 
+  /**
+   * Timestamp of when the position was last updated
+   * Using lastUpdated for consistency with PositionEntity and PositionModel
+   */
   @IsNotEmpty()
-  updatedAt: Date = new Date();
+  lastUpdated: Date = new Date();
 }
 
 export class CreatePositionDto {
@@ -89,5 +98,5 @@ export class UpdatePositionDto {
   healthFactor?: string;
 
   @IsOptional()
-  updatedAt?: Date;
+  lastUpdated?: Date;
 }

@@ -140,7 +140,8 @@ export class ProviderHealthIntegrationService {
   }
 
   /**
-   * Perform health check for all providers and update database
+   * Perform real-time health check for all providers using ProviderHealthMonitor
+   * and update the database with the results
    * @returns Summary of health check results
    */
   async performHealthCheckAndUpdate(): Promise<{
@@ -151,76 +152,88 @@ export class ProviderHealthIntegrationService {
     unknownProviders: number;
   }> {
     try {
-      this.logger.log('Starting comprehensive provider health check');
+      this.logger.log('Starting real-time provider health check');
 
-      const providers = await this.providerRepository.find({
-        where: { isActive: true }
-      });
+      // Trigger real-time health checks via the monitor
+      await this.providerHealthMonitor.checkAllProviders();
+
+      // Get all health check results from the monitor (returns Map)
+      const healthResultsMap = this.providerHealthMonitor.getAllHealthCheckResults();
+      const healthResults = Array.from(healthResultsMap.values());
 
       let healthyCount = 0;
       let degradedCount = 0;
       let unhealthyCount = 0;
       let unknownCount = 0;
 
-      for (const provider of providers) {
+      // Process each health check result
+      for (const result of healthResults) {
         try {
-          // Note: The actual integration would require a proper provider adapter instance
-          // For now, we'll simulate health check results based on existing health data
-          const healthChecks = await this.providerHealthRepository.find({
-            where: { providerId: provider.id },
-            order: { lastCheckTime: 'DESC' },
-            take: 1
-          });
-
-          if (healthChecks.length > 0) {
-            const latestHealth = healthChecks[0];
-            
-            // Update health metrics based on existing data
-            const healthMetrics = {
-              isHealthy: latestHealth.isHealthy,
-              successCount: latestHealth.successCount,
-              errorCount: latestHealth.errorCount,
-              rateLimitCount: latestHealth.rateLimitCount,
-              averageResponseTime: latestHealth.averageResponseTime,
-              uptime: latestHealth.uptime,
-              customMetrics: latestHealth.metrics || {}
-            };
-
-            await this.updateProviderHealth(provider.name, latestHealth.network, healthMetrics);
-
-            // Count by status based on health
-            if (latestHealth.isHealthy && latestHealth.uptime > 95) {
-              healthyCount++;
-            } else if (latestHealth.isHealthy && latestHealth.uptime > 80) {
-              degradedCount++;
-            } else if (!latestHealth.isHealthy) {
-              unhealthyCount++;
-            } else {
-              unknownCount++;
+          // Update database with real-time health metrics
+          const healthMetrics = {
+            isHealthy: result.status === 'healthy',
+            successCount: result.score > 50 ? 1 : 0,
+            errorCount: result.error ? 1 : 0,
+            rateLimitCount: result.rateLimit ? (result.rateLimit.limit - result.rateLimit.remaining) : 0,
+            averageResponseTime: result.responseTime || 0,
+            uptime: result.score,
+            customMetrics: {
+              blockNumber: result.blockNumber,
+              lastCheckTimestamp: result.timestamp,
+              rateLimit: result.rateLimit
             }
-          } else {
-            unknownCount++;
+          };
+
+          await this.updateProviderHealth(result.provider, result.network, healthMetrics);
+
+          // Count by status
+          switch (result.status) {
+            case 'healthy':
+              healthyCount++;
+              break;
+            case 'degraded':
+              degradedCount++;
+              break;
+            case 'unhealthy':
+              unhealthyCount++;
+              break;
+            default:
+              unknownCount++;
+              break;
           }
 
         } catch (error) {
-          this.logger.error(`Error checking health for provider ${provider.name}:`, error);
+          this.logger.error(`Error processing health result for ${result.provider}:`, error);
+          unknownCount++;
+        }
+      }
+
+      // Also check database providers that may not have real-time adapters
+      const dbProviders = await this.providerRepository.find({
+        where: { isActive: true }
+      });
+
+      // Count providers without real-time results as unknown
+      const checkedProviders = new Set(healthResults.map(r => r.provider));
+      for (const provider of dbProviders) {
+        if (!checkedProviders.has(provider.name)) {
           unknownCount++;
         }
       }
 
       const summary = {
-        totalProviders: providers.length,
+        totalProviders: Math.max(healthResults.length, dbProviders.length),
         healthyProviders: healthyCount,
         degradedProviders: degradedCount,
         unhealthyProviders: unhealthyCount,
         unknownProviders: unknownCount
       };
 
-      this.logger.log('Health check completed:', summary);
+      this.logger.log('Real-time health check completed:', summary);
       return summary;
 
     } catch (error) {
-      this.logger.error('Error performing health check and update:', error);
+      this.logger.error('Error performing real-time health check:', error);
       throw error;
     }
   }

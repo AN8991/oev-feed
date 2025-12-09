@@ -229,7 +229,7 @@ export class AaveV2EthereumAdapter implements ProtocolAdapterPort {
             protocol: this.PROTOCOL,
             network: this.NETWORK,
             version: this.VERSION,
-            lastUpdated: Date.now()
+            lastUpdated: new Date()
           };
           
           positionDTOs.push(positionDTO);

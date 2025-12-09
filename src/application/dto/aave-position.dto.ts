@@ -34,5 +34,10 @@ export interface AavePositionDTO {
   protocol: string;
   network: string;
   version: string;
-  lastUpdated: number;
+  
+  /**
+   * Timestamp of when the position was last updated
+   * Using Date for consistency with PositionEntity and PositionModel
+   */
+  lastUpdated: Date;
 }

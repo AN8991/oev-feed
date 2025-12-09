@@ -4,6 +4,12 @@ import { ConfigService } from '@nestjs/config';
 import { ProviderAdapterPort } from '@domain/ports/secondary/provider-adapter.port';
 import { AlchemyProviderAdapter, AlchemyProviderConfig } from './alchemy-provider.adapter';
 import { InfuraProviderAdapter, InfuraProviderConfig } from './infura-provider.adapter';
+import { AnkrProviderAdapter, AnkrProviderConfig } from './ankr-provider.adapter';
+import { QuickNodeProviderAdapter, QuickNodeProviderConfig } from './quicknode-provider.adapter';
+import { BlockDaemonProviderAdapter, BlockDaemonProviderConfig } from './blockdaemon-provider.adapter';
+import { BlockCypherProviderAdapter, BlockCypherProviderConfig } from './blockcypher-provider.adapter';
+import { EtherscanProviderAdapter, EtherscanProviderConfig } from './etherscan-provider.adapter';
+import { PocketProviderAdapter, PocketProviderConfig } from './pocket-provider.adapter';
 import { EnhancedProviderAdapter } from './enhanced-provider.adapter';
 import { NetworkConfigService } from '@infrastructure/config/network.config';
 import { RequestDistributor, SelectionStrategy } from '@infrastructure/utils/request-distributor';
@@ -432,7 +438,7 @@ export class ProviderFactory {
     // Get API key from environment
     const apiKey = this.configService.get<string>(providerConfig.apiKeyEnvVar);
     
-    if (!apiKey && type !== Providers.LOCAL) {
+    if (!apiKey) {
       throw new Error(`API key not found for ${type}. Please set ${providerConfig.apiKeyEnvVar} environment variable.`);
     }
     
@@ -454,6 +460,24 @@ export class ProviderFactory {
         break;
       case Providers.INFURA:
         baseProvider = new InfuraProviderAdapter(mergedConfig as InfuraProviderConfig);
+        break;
+      case Providers.ANKR:
+        baseProvider = new AnkrProviderAdapter(mergedConfig as AnkrProviderConfig);
+        break;
+      case Providers.QUICKNODE:
+        baseProvider = new QuickNodeProviderAdapter(mergedConfig as QuickNodeProviderConfig);
+        break;
+      case Providers.BLOCKDAEMON:
+        baseProvider = new BlockDaemonProviderAdapter(mergedConfig as BlockDaemonProviderConfig);
+        break;
+      case Providers.BLOCKCYPHER:
+        baseProvider = new BlockCypherProviderAdapter(mergedConfig as BlockCypherProviderConfig);
+        break;
+      case Providers.ETHERSCAN:
+        baseProvider = new EtherscanProviderAdapter(mergedConfig as EtherscanProviderConfig);
+        break;
+      case Providers.POCKET:
+        baseProvider = new PocketProviderAdapter(mergedConfig as PocketProviderConfig);
         break;
       default:
         throw new Error(`Unsupported provider type: ${type}`);

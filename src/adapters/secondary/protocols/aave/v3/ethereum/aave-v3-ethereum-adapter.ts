@@ -354,7 +354,7 @@ export class AaveV3EthereumAdapter implements ProtocolAdapterPort {
             protocol: this.PROTOCOL,
             network: this.NETWORK,
             version: this.VERSION,
-            lastUpdated: Date.now()
+            lastUpdated: new Date()
           };
           
           this.logger.debug(`Created position for ${symbol} - Collateral: ${dto.aTokenBalance}, Debt: ${BigInt(dto.stableDebt) + BigInt(dto.variableDebt)}`);

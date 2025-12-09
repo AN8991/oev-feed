@@ -55,7 +55,7 @@ export class AavePositionMapper {
       healthFactor: healthFactor.replace(/\.$/, ''),
       liquidationThreshold: dto.liquidationThreshold ?? '0',
       ltv: dto.ltv ?? '0',
-      lastUpdated: new Date(dto.lastUpdated ?? Date.now()),
+      lastUpdated: dto.lastUpdated instanceof Date ? dto.lastUpdated : new Date(dto.lastUpdated ?? Date.now()),
     };
     } catch (error) {
       this.logger.error('Error mapping Aave position to domain model:', error);

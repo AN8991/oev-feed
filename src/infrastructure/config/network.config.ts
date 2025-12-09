@@ -268,60 +268,6 @@ export class NetworkConfigService {
         apiKeyEnvVar: 'POCKET_API_KEY'
       }
     },
-    [Providers.CUSTOM]: {
-      [Network.ETHEREUM]: {
-        httpTemplate: '{apiKey}', // Custom URL provided directly as apiKey
-        wsTemplate: '',
-        apiKeyEnvVar: 'CUSTOM_ETHEREUM_RPC_URL'
-      },
-      [Network.POLYGON]: {
-        httpTemplate: '{apiKey}',
-        wsTemplate: '',
-        apiKeyEnvVar: 'CUSTOM_POLYGON_RPC_URL'
-      },
-      [Network.ARBITRUM]: {
-        httpTemplate: '{apiKey}',
-        wsTemplate: '',
-        apiKeyEnvVar: 'CUSTOM_ARBITRUM_RPC_URL'
-      },
-      [Network.OPTIMISM]: {
-        httpTemplate: '{apiKey}',
-        wsTemplate: '',
-        apiKeyEnvVar: 'CUSTOM_OPTIMISM_RPC_URL'
-      },
-      [Network.BLAST]: {
-        httpTemplate: '{apiKey}',
-        wsTemplate: '',
-        apiKeyEnvVar: 'CUSTOM_BLAST_RPC_URL'
-      }
-    },
-    [Providers.LOCAL]: {
-      [Network.ETHEREUM]: {
-        httpTemplate: 'http://localhost:8545',
-        wsTemplate: 'ws://localhost:8546',
-        apiKeyEnvVar: 'LOCAL_NODE_ENABLED' // Just a flag to enable local node
-      },
-      [Network.POLYGON]: {
-        httpTemplate: 'http://localhost:8547',
-        wsTemplate: 'ws://localhost:8548',
-        apiKeyEnvVar: 'LOCAL_NODE_ENABLED'
-      },
-      [Network.ARBITRUM]: {
-        httpTemplate: 'http://localhost:8549',
-        wsTemplate: 'ws://localhost:8550',
-        apiKeyEnvVar: 'LOCAL_NODE_ENABLED'
-      },
-      [Network.OPTIMISM]: {
-        httpTemplate: 'http://localhost:8551',
-        wsTemplate: 'ws://localhost:8552',
-        apiKeyEnvVar: 'LOCAL_NODE_ENABLED'
-      },
-      [Network.BLAST]: {
-        httpTemplate: 'http://localhost:8553',
-        wsTemplate: 'ws://localhost:8554',
-        apiKeyEnvVar: 'LOCAL_NODE_ENABLED'
-      }
-    }
   };
 
   constructor(private readonly configService: ConfigService) {}

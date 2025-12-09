@@ -85,7 +85,7 @@ export class NetworkConfigUsageExample {
       return {
         ...networkInfo,
         rpcUrl: fallbackUrl,
-        provider: Providers.CUSTOM
+        provider: Providers.ANKR // Use Ankr as fallback (free tier)
       };
     }
 
@@ -185,12 +185,8 @@ export class NetworkConfigUsageExample {
         return this.networkConfig.getNetworkConfig(network, Providers.INFURA);
         
       case 'development':
-        // Try local node first, fallback to public providers
-        try {
-          return this.networkConfig.getNetworkConfig(network, Providers.LOCAL);
-        } catch {
-          return this.networkConfig.getNetworkConfig(network, Providers.INFURA);
-        }
+        // Use Ankr (free tier) for development
+        return this.networkConfig.getNetworkConfig(network, Providers.ANKR);
         
       default:
         return this.networkConfig.getNetworkConfig(network, Providers.INFURA);

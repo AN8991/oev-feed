@@ -12,7 +12,5 @@ export enum Providers {
   QUICKNODE = 'quicknode',
   ETHERSCAN = 'etherscan',
   ANKR = 'ankr',
-  POCKET = 'pocket',
-  CUSTOM = 'custom',
-  LOCAL = 'local'
+  POCKET = 'pocket'
 }
